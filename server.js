@@ -3,6 +3,7 @@ import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+
 import dotenv from "dotenv";
 dotenv.config();
 
@@ -23,35 +24,11 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// 🧠 MEMORY (IMPORTANT)
+// 🧠 MEMORY (conversation history)
 let messages = [
-  { role: "system", content: "You are a partnership business consultant." }
-];
-
-app.get("/", (req, res) => {
-  res.sendFile(path.join(__dirname, "index.html"));
-});
-app.post("/chat", async (req, res) => {
-  try {
-    const userMessage = req.body.message;
-
-    // ✅ Input validation
-    if (!userMessage || userMessage.trim() === "") {
-      return res.status(400).json({
-        reply: "Please type something first."
-      });
-    }
-
-    // ✅ Save user message to memory
-    messages.push({ role: "user", content: userMessage });
-
-    // ✅ Send FULL conversation to AI
-    const response = await openai.chat.completions.create({
-  model: "gpt-4o-mini",
-  messages: [
-    {
-      role: "system",
-      content: `
+  {
+    role: "system",
+    content: `
 You are a professional AI tutor.
 
 Rules:
@@ -64,38 +41,62 @@ Rules:
 If user writes in English → reply in Burmese
 If user writes in Burmese → reply in Burmese
 `
-    },
-    {
-      role: "user",
-      content: message
-    }
-  ]
+  }
+];
+
+// ✅ Serve frontend
+app.get("/", (req, res) => {
+  res.sendFile(path.join(__dirname, "index.html"));
 });
+
+// 💬 Chat API
+app.post("/chat", async (req, res) => {
+  try {
+    const userMessage = req.body.message;
+
+    // ✅ Validation
+    if (!userMessage || userMessage.trim() === "") {
+      return res.status(400).json({
+        reply: "Please type something first."
+      });
+    }
+
+    // ✅ Save user message
+    messages.push({
+      role: "user",
+      content: userMessage
+    });
+
+    // ✅ Send FULL conversation to OpenAI
+    const response = await openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: messages
+    });
 
     // ✅ Get AI reply
     const aiReply = response.choices[0].message.content;
 
-    // ✅ Save AI reply to memory
-    messages.push({ role: "assistant", content: aiReply });
+    // ✅ Save AI reply
+    messages.push({
+      role: "assistant",
+      content: aiReply
+    });
 
-    // ✅ Send back to frontend
+    // ✅ Send to frontend
     res.json({
       reply: aiReply
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("ERROR:", error);
 
     res.status(500).json({
-      reply: "Something went wrong. Check server console."
+      reply: "⚠️ Server error. Please try again."
     });
   }
 });
 
-app.get("/", (req, res) => {
-  res.send("Server is running ✅");
-});
-
+// 🚀 Start server
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
