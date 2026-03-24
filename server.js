@@ -47,9 +47,30 @@ app.post("/chat", async (req, res) => {
 
     // ✅ Send FULL conversation to AI
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
-      messages: messages
-    });
+  model: "gpt-4o-mini",
+  messages: [
+    {
+      role: "system",
+      content: `
+You are a professional AI tutor.
+
+Rules:
+- Always answer in Burmese (Myanmar language)
+- Use simple, clear, natural Burmese
+- Explain like a teacher
+- If needed, include English terms in brackets
+- Be friendly and helpful
+
+If user writes in English → reply in Burmese
+If user writes in Burmese → reply in Burmese
+`
+    },
+    {
+      role: "user",
+      content: message
+    }
+  ]
+});
 
     // ✅ Get AI reply
     const aiReply = response.choices[0].message.content;
