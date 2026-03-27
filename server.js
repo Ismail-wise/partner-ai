@@ -15,7 +15,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ✅ Rate limit (protect API money)
+// ✅ Rate limit (protect API usage)
 app.use(rateLimit({
   windowMs: 60 * 1000,
   max: 20
@@ -33,27 +33,22 @@ const openai = new OpenAI({
 // ✅ Store conversations per user
 const userConversations = {};
 
-// ✅ Your system prompt (FIXED)
+// ✅ Strong Burmese System Prompt (UPGRADED)
 const systemPrompt = {
   role: "system",
   content: `
-You are a highly professional Burmese (Myanmar) AI teacher and assistant.
+သင်သည် မြန်မာဘာသာဖြင့် အလွန်ကျွမ်းကျင်သော AI ဆရာတစ်ဦး ဖြစ်သည်။
 
-LANGUAGE:
-- Always respond in fluent Burmese (Myanmar Unicode)
-- Natural and human-like
+လိုက်နာရန်စည်းကမ်းများ:
+- အမြဲ မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
+- သဘာဝဆန်ပြီး လူတစ်ယောက်လို ပြောပါ
+- ရိုးရှင်းစွာရှင်းပြပြီး လိုအပ်ရင် နက်ရှိုင်းစွာဆက်ရှင်းပါ
+- ဥပမာများထည့်ပါ
+- ဖော်ရွေပြီး သဘောထားကောင်းစွာ ပြန်ဖြေပါ
 
-STYLE:
-- Clear explanation
-- Simple first, deeper if needed
-- Warm and polite
-
-STRUCTURE:
-- Short paragraphs
-- Use examples
-
-BEHAVIOR:
-- Always answer in Burmese
+ရည်ရွယ်ချက်:
+- သင်ကြားပေးခြင်း
+- နားလည်အောင်ရှင်းပြခြင်း
 `
 };
 
@@ -70,20 +65,20 @@ app.post("/chat", async (req, res) => {
     // ✅ Validation
     if (!userMessage || userMessage.trim() === "") {
       return res.status(400).json({
-        reply: "Please type something first."
+        reply: "စာတစ်ခုခု ရိုက်ထည့်ပါ။"
       });
     }
 
     if (userMessage.length > 500) {
       return res.status(400).json({
-        reply: "Message too long (max 500 characters)"
+        reply: "စာရှည်လွန်းပါတယ် (500 characters အတွင်းသာ)"
       });
     }
 
-    // ✅ Identify user (simple)
+    // ✅ Identify user
     const userId = req.ip;
 
-    // ✅ Create conversation if not exists
+    // ✅ Initialize memory
     if (!userConversations[userId]) {
       userConversations[userId] = [systemPrompt];
     }
@@ -96,16 +91,15 @@ app.post("/chat", async (req, res) => {
       content: userMessage
     });
 
-    // ✅ Limit memory (important)
+    // ✅ Limit memory (safe)
     if (conversation.length > 20) {
       conversation.splice(1, 2);
     }
 
-    // ✅ Call OpenAI
+    // ✅ OpenAI call (STABLE MODEL)
     const response = await openai.chat.completions.create({
-      model: "gpt-5-mini", // upgraded model
-      messages: conversation,
-      temperature: 0.7
+      model: "gpt-4o-mini", // ✅ stable & cheap & good
+      messages: conversation
     });
 
     const aiReply = response.choices[0].message.content;
@@ -122,10 +116,10 @@ app.post("/chat", async (req, res) => {
     });
 
   } catch (error) {
-    console.error("ERROR:", error);
+    console.error("❌ ERROR:", error.message);
 
     res.status(500).json({
-      reply: "⚠️ Server error. Please try again."
+      reply: "⚠️ Server error ဖြစ်ပါတယ်။ နောက်တစ်ကြိမ် ထပ်ကြိုးစားပါ။"
     });
   }
 });
@@ -134,5 +128,5 @@ app.post("/chat", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`✅ Server running on port ${PORT}`);
 });
