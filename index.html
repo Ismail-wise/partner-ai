@@ -199,7 +199,7 @@ async function sendMessage() {
   const typingId = showTyping();
 
   try {
-    const res = await fetch(`${API_URL}/chat`, {
+    const res = await fetch("/chat", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
