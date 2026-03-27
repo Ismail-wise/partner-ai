@@ -171,7 +171,7 @@
 
 <div class="chat-container">
 
-  <div class="chat-header">
+  <div class="chat-header"> 
     🤖 Ismai'L Sout Chaw Gyi
   </div>
 
@@ -185,7 +185,7 @@
 </div>
 
 <script>
-const API_URL = "https://caressive-heide-bedless.ngrok-free.dev/chat";
+const API_URL = "https://caressive-heide-bedless.ngrok-free.dev";
 
 async function sendMessage() {
   const inputField = document.getElementById("userInput");
@@ -199,7 +199,7 @@ async function sendMessage() {
   const typingId = showTyping();
 
   try {
-    const res = await fetch("/chat", {
+    const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"

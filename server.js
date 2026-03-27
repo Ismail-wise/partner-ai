@@ -1,8 +1,6 @@
+import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -11,12 +9,20 @@ import express from "express";
 import OpenAI from "openai";
 import cors from "cors";
 
+// Fix __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const app = express();
 
-// ✅ Enable CORS
-app.use(cors());
+// ✅ Rate limit (protect API money)
+app.use(rateLimit({
+  windowMs: 60 * 1000,
+  max: 20
+}));
 
-// ✅ Parse JSON
+// ✅ Middleware
+app.use(cors());
 app.use(express.json());
 
 // ✅ OpenAI setup
@@ -24,44 +30,32 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-let messages = [
-  {
-    role: "system",
-    content: `
+// ✅ Store conversations per user
+const userConversations = {};
+
+// ✅ Your system prompt (FIXED)
+const systemPrompt = {
+  role: "system",
+  content: `
 You are a highly professional Burmese (Myanmar) AI teacher and assistant.
 
-Your communication style MUST follow these rules:
-
 LANGUAGE:
-- Always respond in fluent, natural Burmese (Myanmar Unicode)
-- Use smooth, human-like Burmese (not robotic or direct translation)
-- Avoid awkward or literal English translation
+- Always respond in fluent Burmese (Myanmar Unicode)
+- Natural and human-like
 
 STYLE:
-- Explain clearly like a good teacher
-- Use simple words first, then explain deeper if needed
-- Use polite and warm tone
-- Make answers easy to understand
+- Clear explanation
+- Simple first, deeper if needed
+- Warm and polite
 
 STRUCTURE:
-- Break explanations into small paragraphs
-- Use examples when helpful
-- If needed, include English terms in brackets ( )
+- Short paragraphs
+- Use examples
 
 BEHAVIOR:
-- If user asks in English → answer in Burmese
-- If user asks in Burmese → answer in Burmese
-- If concept is complex → simplify step-by-step
-
-EXAMPLE STYLE:
-"Stock ဆိုတာ ကုမ္ပဏီတစ်ခုရဲ့ အစုရှယ်ယာတစ်ခု ဖြစ်ပါတယ်။
-ဥပမာ - Apple ကုမ္ပဏီရဲ့ stock ကို ဝယ်လိုက်ရင်
-အဲဒီကုမ္ပဏီရဲ့ အစိတ်အပိုင်းတစ်ခုကို ပိုင်ဆိုင်နေတဲ့သူ ဖြစ်သွားပါတယ်။"
-
-You must always maintain this quality.
+- Always answer in Burmese
 `
-  }
-];
+};
 
 // ✅ Serve frontend
 app.get("/", (req, res) => {
@@ -80,28 +74,49 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // ✅ Save user message
-    messages.push({
+    if (userMessage.length > 500) {
+      return res.status(400).json({
+        reply: "Message too long (max 500 characters)"
+      });
+    }
+
+    // ✅ Identify user (simple)
+    const userId = req.ip;
+
+    // ✅ Create conversation if not exists
+    if (!userConversations[userId]) {
+      userConversations[userId] = [systemPrompt];
+    }
+
+    const conversation = userConversations[userId];
+
+    // ✅ Add user message
+    conversation.push({
       role: "user",
       content: userMessage
     });
 
-   const response = await openai.chat.completions.create({
-  model: "gpt-4o-mini",
-  messages: messages,
-  temperature: 0.7
-});
+    // ✅ Limit memory (important)
+    if (conversation.length > 20) {
+      conversation.splice(1, 2);
+    }
 
-    // ✅ Get AI reply
+    // ✅ Call OpenAI
+    const response = await openai.chat.completions.create({
+      model: "gpt-5-mini", // upgraded model
+      messages: conversation,
+      temperature: 0.7
+    });
+
     const aiReply = response.choices[0].message.content;
 
     // ✅ Save AI reply
-    messages.push({
+    conversation.push({
       role: "assistant",
       content: aiReply
     });
 
-    // ✅ Send to frontend
+    // ✅ Send response
     res.json({
       reply: aiReply
     });
@@ -119,5 +134,5 @@ app.post("/chat", async (req, res) => {
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`✅ Server running on http://localhost:${PORT}`);
 });
