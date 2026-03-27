@@ -1,3 +1,5 @@
+import fs from "fs";
+import pdf from "pdf-parse";
 import rateLimit from "express-rate-limit";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -15,7 +17,7 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
-// ✅ Rate limit (protect API usage)
+// ✅ Rate limit
 app.use(rateLimit({
   windowMs: 60 * 1000,
   max: 20
@@ -25,32 +27,41 @@ app.use(rateLimit({
 app.use(cors());
 app.use(express.json());
 
-// ✅ OpenAI setup
+// ✅ OpenAI
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
-// ✅ Store conversations per user
+// ✅ User memory
 const userConversations = {};
 
-// ✅ Strong Burmese System Prompt (UPGRADED)
-const systemPrompt = {
-  role: "system",
-  content: `
-သင်သည် မြန်မာဘာသာဖြင့် အလွန်ကျွမ်းကျင်သော AI ဆရာတစ်ဦး ဖြစ်သည်။
+// ✅ PDF Memory (GLOBAL)
+let courseMemory = "";
 
-လိုက်နာရန်စည်းကမ်းများ:
-- အမြဲ မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
-- သဘာဝဆန်ပြီး လူတစ်ယောက်လို ပြောပါ
-- ရိုးရှင်းစွာရှင်းပြပြီး လိုအပ်ရင် နက်ရှိုင်းစွာဆက်ရှင်းပါ
-- ဥပမာများထည့်ပါ
-- ဖော်ရွေပြီး သဘောထားကောင်းစွာ ပြန်ဖြေပါ
+// 🔥 LOAD PDF ON SERVER START (BEST WAY)
+async function loadPDF() {
+  try {
+    const filePath = path.join(__dirname, "docs", "course.pdf");
 
-ရည်ရွယ်ချက်:
-- သင်ကြားပေးခြင်း
-- နားလည်အောင်ရှင်းပြခြင်း
-`
-};
+    if (!fs.existsSync(filePath)) {
+      console.log("⚠️ No PDF found in /docs folder");
+      return;
+    }
+
+    const dataBuffer = fs.readFileSync(filePath);
+    const data = await pdf(dataBuffer);
+
+    // Limit size (important)
+    courseMemory = data.text.substring(0, 3000);
+
+    console.log("✅ PDF Loaded into AI memory");
+  } catch (err) {
+    console.error("❌ PDF Load Error:", err.message);
+  }
+}
+
+// 🚀 Run once at startup
+await loadPDF();
 
 // ✅ Serve frontend
 app.get("/", (req, res) => {
@@ -75,12 +86,11 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // ✅ Identify user
     const userId = req.ip;
 
-    // ✅ Initialize memory
+    // ✅ Create memory
     if (!userConversations[userId]) {
-      userConversations[userId] = [systemPrompt];
+      userConversations[userId] = [];
     }
 
     const conversation = userConversations[userId];
@@ -91,15 +101,36 @@ app.post("/chat", async (req, res) => {
       content: userMessage
     });
 
-    // ✅ Limit memory (safe)
+    // ✅ Limit memory
     if (conversation.length > 20) {
-      conversation.splice(1, 2);
+      conversation.splice(0, 2);
     }
 
-    // ✅ OpenAI call (STABLE MODEL)
+    // 🔥 SYSTEM PROMPT WITH PDF MEMORY
+    const systemMessage = {
+      role: "system",
+      content: `
+သင်သည် မြန်မာဘာသာဖြင့် အလွန်ကျွမ်းကျင်သော AI ဆရာတစ်ဦး ဖြစ်သည်။
+
+📚 သင့်မှာရှိသော သင်ခန်းစာအချက်အလက်များ:
+${courseMemory}
+
+လိုက်နာရန်:
+- အမြဲ မြန်မာဘာသာဖြင့် ပြန်ဖြေပါ
+- သဘာဝဆန်ပြီး လူတစ်ယောက်လို ပြောပါ
+- ရိုးရှင်းစွာရှင်းပြပြီး လိုအပ်ရင် နက်ရှိုင်းစွာဆက်ရှင်းပါ
+- ဥပမာများထည့်ပါ
+- သင်ခန်းစာအချက်အလက်များကို အသုံးပြုပါ
+`
+    };
+
+    // ✅ OpenAI call
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini", // ✅ stable & cheap & good
-      messages: conversation
+      model: "gpt-4o-mini",
+      messages: [
+        systemMessage,
+        ...conversation
+      ]
     });
 
     const aiReply = response.choices[0].message.content;
@@ -110,10 +141,7 @@ app.post("/chat", async (req, res) => {
       content: aiReply
     });
 
-    // ✅ Send response
-    res.json({
-      reply: aiReply
-    });
+    res.json({ reply: aiReply });
 
   } catch (error) {
     console.error("❌ ERROR:", error.message);
