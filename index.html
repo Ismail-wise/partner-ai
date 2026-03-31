@@ -1,245 +1,240 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Partner AI</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Partner AI</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: "Segoe UI", sans-serif;
-      background: linear-gradient(135deg, #0f172a, #1e293b);
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-      color: white;
-      overflow: hidden;
-    }
+<style>
+body {
+  margin: 0;
+  font-family: "Segoe UI", sans-serif;
+  background: #0f172a;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  color: white;
+}
 
-    .chat-container {
-      width: 100%;
-      max-width: 750px;
-      height: 95vh;
-      background: #1e293b;
-      border-radius: 16px;
-      display: flex;
-      flex-direction: column;
-      overflow: hidden;
-      box-shadow: 0 0 40px rgba(0,0,0,0.6);
-    }
+/* CONTAINER */
+.chat-container {
+  width: 100%;
+  max-width: 850px;
+  height: 95vh;
+  background: #020617;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 0 50px rgba(0,0,0,0.7);
+}
 
-    /* HEADER */
-    .chat-header {
-      padding: 15px;
-      background: #020617;
-      border-bottom: 1px solid #334155;
-      text-align: center;
-      font-weight: bold;
-      letter-spacing: 1px;
-    }
+/* HEADER */
+.chat-header {
+  padding: 18px;
+  background: linear-gradient(135deg, #0ea5e9, #22c55e);
+  font-weight: bold;
+  text-align: center;
+  letter-spacing: 1px;
+}
 
-    /* CHAT AREA */
-    .chat-box {
-      flex: 1;
-      padding: 20px;
-      overflow-y: auto;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
+/* CHAT AREA */
+.chat-box {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
-    /* MESSAGE ROW */
-    .message-row {
-      display: flex;
-      align-items: flex-end;
-      animation: fadeIn 0.3s ease;
-    }
+/* MESSAGE ROW */
+.message-row {
+  display: flex;
+  align-items: flex-end;
+  animation: fadeIn 0.25s ease;
+}
 
-    .message-row.user {
-      justify-content: flex-end;
-    }
+.user {
+  justify-content: flex-end;
+}
 
-    .message-row.ai {
-      justify-content: flex-start;
-    }
+.ai {
+  justify-content: flex-start;
+}
 
-    /* AVATAR */
-    .avatar {
-      width: 34px;
-      height: 34px;
-      border-radius: 50%;
-      margin: 0 8px;
-    }
+/* AVATAR */
+.avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  margin: 0 8px;
+}
 
-    /* MESSAGE */
-    .message {
-      padding: 12px 14px;
-      border-radius: 14px;
-      max-width: 75%;
-      white-space: pre-wrap;
-      font-size: 14px;
-      line-height: 1.5;
-    }
+/* MESSAGE */
+.message {
+  padding: 12px 14px;
+  border-radius: 14px;
+  max-width: 75%;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+}
 
-    .user .message {
-      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-      color: black;
-    }
+.user .message {
+  background: linear-gradient(135deg, #38bdf8, #0ea5e9);
+  color: black;
+}
 
-    .ai .message {
-      background: #334155;
-    }
+.ai .message {
+  background: #1e293b;
+}
 
-    /* INPUT AREA */
-    .input-box {
-      display: flex;
-      padding: 12px;
-      border-top: 1px solid rgba(255,255,255,0.05);
-      background: #020617;
-    }
+/* INPUT AREA */
+.input-box {
+  display: flex;
+  padding: 12px;
+  background: #020617;
+  border-top: 1px solid #1e293b;
+}
 
-    input {
-      flex: 1;
-      padding: 12px;
-      border-radius: 10px;
-      border: none;
-      outline: none;
-      background: #0f172a;
-      color: white;
-      font-size: 14px;
-    }
+input {
+  flex: 1;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  outline: none;
+  background: #0f172a;
+  color: white;
+}
 
-    button {
-      margin-left: 10px;
-      padding: 12px 16px;
-      border: none;
-      border-radius: 10px;
-      background: linear-gradient(135deg, #38bdf8, #0ea5e9);
-      cursor: pointer;
-      font-weight: bold;
-      transition: 0.2s;
-    }
+button {
+  margin-left: 10px;
+  padding: 12px 16px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #22c55e, #0ea5e9);
+  cursor: pointer;
+  font-weight: bold;
+  transition: 0.2s;
+}
 
-    button:hover {
-      transform: scale(1.05);
-    }
+button:hover {
+  transform: scale(1.05);
+}
 
-    /* SCROLLBAR */
-    .chat-box::-webkit-scrollbar {
-      width: 6px;
-    }
+/* SCROLL */
+.chat-box::-webkit-scrollbar {
+  width: 6px;
+}
 
-    .chat-box::-webkit-scrollbar-thumb {
-      background: #475569;
-      border-radius: 10px;
-    }
+.chat-box::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 10px;
+}
 
-    /* ANIMATION */
-    @keyframes fadeIn {
-      from {
-        opacity: 0;
-        transform: translateY(10px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
+/* ANIMATION */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
 
-    /* TYPING DOTS */
-    .dots span {
-      animation: blink 1.4s infinite;
-    }
+/* TYPING */
+.typing {
+  display: flex;
+  gap: 5px;
+}
 
-    .dots span:nth-child(2) {
-      animation-delay: 0.2s;
-    }
+.typing span {
+  width: 6px;
+  height: 6px;
+  background: #94a3b8;
+  border-radius: 50%;
+  animation: blink 1.4s infinite;
+}
 
-    .dots span:nth-child(3) {
-      animation-delay: 0.4s;
-    }
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
 
-    @keyframes blink {
-      0% { opacity: 0.2; }
-      20% { opacity: 1; }
-      100% { opacity: 0.2; }
-    }
-  </style>
+@keyframes blink {
+  0% { opacity: 0.2; }
+  20% { opacity: 1; }
+  100% { opacity: 0.2; }
+}
+</style>
 </head>
 
 <body>
 
 <div class="chat-container">
 
-  <div class="chat-header"> 
-    🤖 PBR AI CHAT
-  </div>
+  <div class="chat-header">🤖 Partner AI Assistant</div>
 
   <div id="chatBox" class="chat-box"></div>
 
   <div class="input-box">
-    <input id="userInput" placeholder="Ask something..." />
+    <input id="userInput" placeholder="Ask your course..." />
     <button onclick="sendMessage()">Send</button>
   </div>
 
 </div>
 
 <script>
-const API_URL = "https://caressive-heide-bedless.ngrok-free.dev";
+
+const API_URL = "https://partner-ai-56kh.onrender.com/chat";
 
 async function sendMessage() {
-  const inputField = document.getElementById("userInput");
-  const message = inputField.value;
+  const input = document.getElementById("userInput");
+  const message = input.value.trim();
 
-  if (!message.trim()) return;
+  if (!message) return;
 
   addMessage(message, "user");
-  inputField.value = "";
+  input.value = "";
 
-  const typingId = showTyping();
+  const typingEl = showTyping();
 
   try {
-    const res = await fetch("https://partner-ai-56kh.onrender.com/chat", {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({ message })
-});
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ message })
+    });
 
     const data = await res.json();
 
-    removeTyping(typingId);
+    removeTyping(typingEl);
     addMessage(data.reply || "⚠️ No response", "ai");
 
-  } catch (error) {
-    removeTyping(typingId);
-    addMessage("⚠️ Error connecting to server", "ai");
+  } catch (err) {
+    removeTyping(typingEl);
+    addMessage("⚠️ Cannot connect to server", "ai");
   }
 }
 
-/* ENTER KEY SUPPORT */
-document.getElementById("userInput").addEventListener("keypress", function(e) {
-  if (e.key === "Enter") {
-    sendMessage();
-  }
+// ENTER KEY
+document.getElementById("userInput").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") sendMessage();
 });
 
+// ADD MESSAGE
 function addMessage(text, type) {
-  const chatBox = document.getElementById("chatBox");
+  const chat = document.getElementById("chatBox");
 
   const row = document.createElement("div");
-  row.classList.add("message-row", type);
+  row.className = "message-row " + type;
 
   const avatar = document.createElement("img");
-  avatar.classList.add("avatar");
-
+  avatar.className = "avatar";
   avatar.src = type === "user"
-    ? "https://api.dicebear.com/7.x/adventurer/svg?seed=User"
-    : "https://api.dicebear.com/7.x/bottts/svg?seed=AI";
+    ? "https://api.dicebear.com/7.x/adventurer/svg?seed=user"
+    : "https://api.dicebear.com/7.x/bottts/svg?seed=ai";
 
   const msg = document.createElement("div");
-  msg.classList.add("message");
+  msg.className = "message";
   msg.innerText = text;
 
   if (type === "user") {
@@ -250,38 +245,39 @@ function addMessage(text, type) {
     row.appendChild(msg);
   }
 
-  chatBox.appendChild(row);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
 }
 
+// TYPING EFFECT
 function showTyping() {
-  const chatBox = document.getElementById("chatBox");
+  const chat = document.getElementById("chatBox");
 
   const row = document.createElement("div");
-  row.classList.add("message-row", "ai");
-  row.id = "typing";
+  row.className = "message-row ai";
 
   const avatar = document.createElement("img");
-  avatar.classList.add("avatar");
-  avatar.src = "https://api.dicebear.com/7.x/bottts/svg?seed=AI";
+  avatar.className = "avatar";
+  avatar.src = "https://api.dicebear.com/7.x/bottts/svg?seed=ai";
 
   const msg = document.createElement("div");
-  msg.classList.add("message");
-  msg.innerHTML = "AI is typing <span class='dots'><span>.</span><span>.</span><span>.</span></span>";
+  msg.className = "message typing";
+
+  msg.innerHTML = "<span></span><span></span><span></span>";
 
   row.appendChild(avatar);
   row.appendChild(msg);
 
-  chatBox.appendChild(row);
-  chatBox.scrollTop = chatBox.scrollHeight;
+  chat.appendChild(row);
+  chat.scrollTop = chat.scrollHeight;
 
-  return "typing";
+  return row;
 }
 
-function removeTyping(id) {
-  const typing = document.getElementById(id);
-  if (typing) typing.remove();
+function removeTyping(el) {
+  if (el) el.remove();
 }
+
 </script>
 
 </body>

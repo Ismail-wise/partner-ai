@@ -10,10 +10,18 @@ import OpenAI from "openai";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 
-// Fix __dirname
+// ✅ NEW PDF LIB
+import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
+
+// ==========================
+// 📁 PATH SETUP
+// ==========================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// ==========================
+// 🚀 APP INIT
+// ==========================
 const app = express();
 
 // ==========================
@@ -21,7 +29,7 @@ const app = express();
 // ==========================
 app.use(rateLimit({
   windowMs: 60 * 1000,
-  max: 30
+  max: 50
 }));
 
 app.use(cors());
@@ -35,32 +43,60 @@ const openai = new OpenAI({
 });
 
 // ==========================
-// 🧠 SIMPLE MEMORY (NO PDF)
+// 📄 LOAD PDF MEMORY
 // ==========================
-const courseMemory = `
-Stock investing ဆိုတာသည် ကုမ္ပဏီများ၏ ရှယ်ယာများကို ဝယ်ယူခြင်းဖြစ်သည်။
+let courseContent = "";
 
-Risk Management ဆိုတာသည် အရှုံးကိုလျှော့ချရန် နည်းလမ်းများဖြစ်သည်။
+async function loadPDF() {
+  try {
+    const pdfPath = path.resolve("docs/course.pdf");
 
-Diversification ဆိုတာသည် မတူညီသော assets များတွင် ရင်းနှီးမြှုပ်နှံခြင်းဖြစ်သည်။
+    console.log("📄 Loading PDF from:", pdfPath);
 
-Long-term investing သည် အချိန်ကြာရှည်စွာ ရင်းနှီးမြှုပ်နှံခြင်းဖြစ်သည်။
-`;
+    if (!fs.existsSync(pdfPath)) {
+      console.log("⚠️ course.pdf not found");
+      return;
+    }
+
+    const data = new Uint8Array(fs.readFileSync(pdfPath));
+
+    const pdf = await pdfjsLib.getDocument({ data }).promise;
+
+    let text = "";
+
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const content = await page.getTextContent();
+
+      const strings = content.items.map(item => item.str);
+      text += strings.join(" ") + "\n";
+    }
+
+    courseContent = text.slice(0, 15000);
+
+    console.log("✅ PDF Loaded Successfully");
+
+  } catch (err) {
+    console.log("❌ PDF Error:", err.message);
+  }
+}
+
+// Load PDF
+await loadPDF();
 
 // ==========================
 // 🧠 SYSTEM PROMPT
 // ==========================
-const systemPrompt = {
-  role: "system",
-  content: `
-သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားနိုင်သော AI ဆရာဖြစ်သည်။
+const systemPrompt = `
+သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
 
 စည်းကမ်းများ:
 - မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
 - ရိုးရှင်းပြီး နားလည်လွယ်အောင်ရှင်းပြပါ
 - ဥပမာများထည့်ပါ
-`
-};
+- မသိပါက မသိကြောင်းပြောပါ
+- PDF content ကို အဓိကအသုံးပြုပါ
+`;
 
 // ==========================
 // 🌐 ROUTES
@@ -81,35 +117,33 @@ app.post("/chat", async (req, res) => {
     }
 
     const messages = [
-      systemPrompt,
+      { role: "system", content: systemPrompt },
       {
         role: "system",
-        content: `
-အောက်ပါ content သည် course မှ ဖြစ်သည်။
-လိုအပ်ပါက အသုံးပြုပါ:
-
-${courseMemory}
-`
+        content: courseContent
+          ? `ဒီဟာ PDF course content ဖြစ်ပါတယ်:\n${courseContent}`
+          : "PDF content မရှိသေးပါ"
       },
-      {
-        role: "user",
-        content: userMessage
-      }
+      { role: "user", content: userMessage }
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
+      model: "gpt-4o-mini",
       messages,
-      temperature: 0.7
+      temperature: 0.6
     });
 
-    const reply = response.choices[0].message.content;
+    const reply =
+      response.choices?.[0]?.message?.content || "⚠️ No response";
 
     res.json({ reply });
 
   } catch (err) {
-    console.error(err.message);
-    res.json({ reply: "⚠️ Error ဖြစ်ပါတယ်" });
+    console.error("❌ ERROR:", err.message);
+
+    res.json({
+      reply: "⚠️ Server error ဖြစ်ပါတယ်"
+    });
   }
 });
 
@@ -119,5 +153,5 @@ ${courseMemory}
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
-  console.log(`✅ Server running on port ${PORT}`);
+  console.log(`🚀 Server running on port ${PORT}`);
 });
