@@ -10,22 +10,22 @@ import OpenAI from "openai";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 
-// ✅ NEW PDF LIB
+// PDF LIB
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 // ==========================
-// 📁 PATH SETUP
+// PATH SETUP
 // ==========================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // ==========================
-// 🚀 APP INIT
+// APP INIT
 // ==========================
 const app = express();
 
 // ==========================
-// ⚙️ MIDDLEWARE
+// MIDDLEWARE
 // ==========================
 app.use(rateLimit({
   windowMs: 60 * 1000,
@@ -36,56 +36,108 @@ app.use(cors());
 app.use(express.json());
 
 // ==========================
-// 🤖 OPENAI
+// OPENAI
 // ==========================
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY
 });
 
 // ==========================
-// 📄 LOAD PDF MEMORY
+// SMART MEMORY SYSTEM
 // ==========================
-let courseContent = "";
+let chunks = [];
 
-async function loadPDF() {
+// 🔹 Split text into chunks
+function splitText(text, size = 300) {
+  const words = text.split(" ");
+  let result = [];
+
+  for (let i = 0; i < words.length; i += size) {
+    result.push(words.slice(i, i + size).join(" "));
+  }
+
+  return result;
+}
+
+// 🔹 Load PDFs and create chunks
+async function loadPDFs() {
   try {
-    const pdfPath = path.resolve("docs/course.pdf");
+    const folderPath = path.join(__dirname, "docs");
 
-    console.log("📄 Loading PDF from:", pdfPath);
+    console.log("📁 Loading PDFs from:", folderPath);
 
-    if (!fs.existsSync(pdfPath)) {
-      console.log("⚠️ course.pdf not found");
+    if (!fs.existsSync(folderPath)) {
+      console.log("⚠️ docs folder not found");
       return;
     }
 
-    const data = new Uint8Array(fs.readFileSync(pdfPath));
+    const files = fs.readdirSync(folderPath);
+    let allText = "";
 
-    const pdf = await pdfjsLib.getDocument({ data }).promise;
+    for (const file of files) {
+      if (!file.toLowerCase().endsWith(".pdf")) continue;
 
-    let text = "";
+      const pdfPath = path.join(folderPath, file);
+      console.log("📄 Loading:", file);
 
-    for (let i = 1; i <= pdf.numPages; i++) {
-      const page = await pdf.getPage(i);
-      const content = await page.getTextContent();
+      try {
+        const data = new Uint8Array(fs.readFileSync(pdfPath));
+        const pdf = await pdfjsLib.getDocument({ data }).promise;
 
-      const strings = content.items.map(item => item.str);
-      text += strings.join(" ") + "\n";
+        for (let i = 1; i <= pdf.numPages; i++) {
+          const page = await pdf.getPage(i);
+          const content = await page.getTextContent();
+
+          const strings = content.items.map(item => item.str);
+          allText += strings.join(" ") + "\n";
+        }
+
+      } catch (fileErr) {
+        console.log(`⚠️ Failed to read ${file}:`, fileErr.message);
+      }
     }
 
-    courseContent = text.slice(0, 15000);
+    if (!allText) {
+      console.log("⚠️ No text extracted from PDFs");
+      return;
+    }
 
-    console.log("✅ PDF Loaded Successfully");
+    chunks = splitText(allText, 300);
+
+    console.log(`✅ Created ${chunks.length} chunks`);
 
   } catch (err) {
-    console.log("❌ PDF Error:", err.message);
+    console.log("❌ PDF SYSTEM ERROR:", err.message);
   }
 }
 
-// Load PDF
-await loadPDF();
+// 🔹 Search relevant chunks
+function searchRelevantChunks(query) {
+  const words = query.toLowerCase().split(" ");
+
+  return chunks
+    .map(chunk => {
+      const text = chunk.toLowerCase();
+
+      let score = 0;
+      for (const w of words) {
+        if (text.includes(w)) score++;
+      }
+
+      return { text: chunk, score };
+    })
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 5)
+    .map(c => c.text);
+}
 
 // ==========================
-// 🧠 SYSTEM PROMPT
+// LOAD PDFs ON START
+// ==========================
+await loadPDFs();
+
+// ==========================
+// SYSTEM PROMPT
 // ==========================
 const systemPrompt = `
 သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
@@ -95,18 +147,18 @@ const systemPrompt = `
 - ရိုးရှင်းပြီး နားလည်လွယ်အောင်ရှင်းပြပါ
 - ဥပမာများထည့်ပါ
 - မသိပါက မသိကြောင်းပြောပါ
-- PDF content ကို အဓိကအသုံးပြုပါ
+- အဖြေကို PDF content အပေါ် အခြေခံပါ
 `;
 
 // ==========================
-// 🌐 ROUTES
+// ROUTES
 // ==========================
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
 // ==========================
-// 💬 CHAT API
+// CHAT API (SMART)
 // ==========================
 app.post("/chat", async (req, res) => {
   try {
@@ -116,13 +168,16 @@ app.post("/chat", async (req, res) => {
       return res.json({ reply: "စာတစ်ခုခု ရိုက်ထည့်ပါ။" });
     }
 
+    // 🔥 Get relevant content
+    const relevantChunks = searchRelevantChunks(userMessage);
+
+    const context = relevantChunks.join("\n\n");
+
     const messages = [
       { role: "system", content: systemPrompt },
       {
         role: "system",
-        content: courseContent
-          ? `ဒီဟာ PDF course content ဖြစ်ပါတယ်:\n${courseContent}`
-          : "PDF content မရှိသေးပါ"
+        content: context || "ဆိုင်ရာ အချက်အလက် မတွေ့ပါ"
       },
       { role: "user", content: userMessage }
     ];
@@ -130,7 +185,7 @@ app.post("/chat", async (req, res) => {
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages,
-      temperature: 0.6
+      temperature: 0.5
     });
 
     const reply =
@@ -148,7 +203,7 @@ app.post("/chat", async (req, res) => {
 });
 
 // ==========================
-// 🚀 START SERVER
+// START SERVER
 // ==========================
 const PORT = process.env.PORT || 3000;
 
