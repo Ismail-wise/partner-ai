@@ -137,17 +137,20 @@ function searchRelevantChunks(query) {
 await loadPDFs();
 
 // ==========================
-// SYSTEM PROMPT
+// SYSTEM PROMPT (UPGRADED)
 // ==========================
 const systemPrompt = `
-သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
+သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော အတွေ့အကြုံရှိ AI ဆရာဖြစ်သည်။
 
 စည်းကမ်းများ:
 - မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
-- ရိုးရှင်းပြီး နားလည်လွယ်အောင်ရှင်းပြပါ
-- ဥပမာများထည့်ပါ
-- မသိပါက မသိကြောင်းပြောပါ
-- အဖြေကို PDF content အပေါ် အခြေခံပါ
+- အလွန်အသေးစိတ်ပြီး နားလည်လွယ်အောင် ရှင်းပြပါ
+- အကြောင်းအရာကို အဆင့်လိုက် (Step-by-step) ခွဲခြားပြီး ရှင်းပြပါ
+- ဥပမာများကို လိုအပ်သလို ထည့်ပါ
+- Bullet points ဖြင့် ရှင်းပြနိုင်ပါက အသုံးပြုပါ
+- အခြေခံမှစ၍ ရှင်းပြပါ (Beginner friendly)
+- အဖြေကို အပြည့်အစုံ ရှင်းပြပါ (Short မဖြစ်စေရ)
+- မသိပါက မသိကြောင်းရှင်းပြပါ
 `;
 
 // ==========================
@@ -170,22 +173,38 @@ app.post("/chat", async (req, res) => {
 
     // 🔥 Get relevant content
     const relevantChunks = searchRelevantChunks(userMessage);
-
     const context = relevantChunks.join("\n\n");
 
     const messages = [
       { role: "system", content: systemPrompt },
+
       {
         role: "system",
-        content: context || "ဆိုင်ရာ အချက်အလက် မတွေ့ပါ"
+        content: `
+အောက်ပါအချက်အလက်များကို အခြေခံပြီး အလွန်အသေးစိတ်၊ အဆင့်လိုက်ရှင်းပြပါ:
+
+${context || "ဆိုင်ရာ အချက်အလက် မရှိပါ"}
+`
       },
+
+      {
+        role: "system",
+        content: `
+အဖြေကို အပြည့်အစုံ ရှင်းပြပါ။
+Step-by-step format အသုံးပြုပါ။
+ဥပမာများပါ ထည့်ပါ။
+ရှင်းလင်းမှုကို အထူးအလေးထားပါ။
+`
+      },
+
       { role: "user", content: userMessage }
     ];
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages,
-      temperature: 0.5
+      temperature: 0.7,
+      max_tokens: 1200
     });
 
     const reply =
