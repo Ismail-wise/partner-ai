@@ -172,7 +172,7 @@
 <div class="chat-container">
 
   <div class="chat-header"> 
-    🤖 Ray's GPT
+    🤖 PBR AI CHAT
   </div>
 
   <div id="chatBox" class="chat-box"></div>
@@ -199,7 +199,7 @@ async function sendMessage() {
   const typingId = showTyping();
 
   try {
-    const res = await fetch("/chat", {
+    const res = await fetch(`${API_URL}/chat`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
