@@ -201,11 +201,11 @@ Step-by-step format အသုံးပြုပါ။
     ];
 
     const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages,
-      temperature: 0.7,
-      max_tokens: 2000
-    });
+  model: "gpt-4o", // ✅ just change this
+  messages,
+  temperature: 0.7,
+  max_tokens: 1500
+});
 
     const reply =
       response.choices?.[0]?.message?.content || "⚠️ No response";
