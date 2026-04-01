@@ -35,26 +35,27 @@ const openai = new OpenAI({
 // ==========================
 // EMBEDDING FUNCTION (ADD HERE)
 // ==========================
+// ==========================
+// EMBEDDING FUNCTION (FIXED)
+// ==========================
 async function getEmbedding(text) {
   try {
     // ✅ ensure valid string
     if (!text || typeof text !== "string") return null;
-
-    // ✅ clean + limit text
+    
+    // ✅ clean + limit text (REMOVED the regex that deletes Myanmar text)
     const cleanText = text
       .replace(/\s+/g, " ")
-      .replace(/[^\x00-\x7F]/g, "") // remove broken chars
-      .slice(0, 1000);
-
+      .slice(0, 1000); // You can safely pass Burmese text to OpenAI
+      
     if (!cleanText) return null;
-
+    
     const res = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: cleanText
     });
-
+    
     return res.data[0].embedding;
-
   } catch (err) {
     console.log("❌ Embedding error:", err.message);
     return null;
