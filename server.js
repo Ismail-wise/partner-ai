@@ -71,7 +71,7 @@ let vectorDB = [];
 // ==========================
 // TEXT SPLITTER
 // ==========================
-function splitText(text, size = 100) {
+function splitText(text, size = 200) {
   const words = text.split(/\s+/);
   let result = [];
 
@@ -216,11 +216,12 @@ app.post("/chat", async (req, res) => {
     }
 
     let relevantChunks = await searchRelevantChunks(userMessage);
+    console.log("🔍 Relevant chunks:", relevantChunks);
     let context = relevantChunks.join("\n\n");
 
     // ✅ fallback (always have context)
     if (!context) {
-      context = chunks.slice(0, 5).join("\n\n");
+      context = chunks.slice(0, 10).join("\n\n");
     }
 
     chatHistory.push({ role: "user", content: userMessage });
