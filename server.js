@@ -51,6 +51,9 @@ function splitText(text, size = 300) {
   return result;
 }
 
+// ==========================
+// LOAD PDFs
+// ==========================
 async function loadPDFs() {
   try {
     const folderPath = path.join(__dirname, "docs");
@@ -88,7 +91,6 @@ async function loadPDFs() {
       }
     }
 
-    // ✅ MUST BE INSIDE FUNCTION
     if (!allText.trim()) {
       console.log("⚠️ No text extracted from PDFs");
       return;
@@ -105,7 +107,7 @@ async function loadPDFs() {
 }
 
 // ==========================
-// SEARCH ENGINE (IMPROVED)
+// SMART SEARCH (FIXED)
 // ==========================
 function searchRelevantChunks(query) {
   const cleanQuery = query.toLowerCase();
@@ -113,13 +115,12 @@ function searchRelevantChunks(query) {
   return chunks
     .map(chunk => {
       const text = chunk.toLowerCase();
-
       let score = 0;
 
       // strong match
       if (text.includes(cleanQuery)) score += 10;
 
-      // partial word match
+      // partial match
       const words = cleanQuery.split(/\s+/);
       for (const w of words) {
         if (w.length > 2 && text.includes(w)) {
@@ -129,7 +130,6 @@ function searchRelevantChunks(query) {
 
       return { text: chunk, score };
     })
-    .filter(c => c.score > 0) // ❗ IMPORTANT
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map(c => c.text);
@@ -141,17 +141,19 @@ function searchRelevantChunks(query) {
 await loadPDFs();
 
 // ==========================
-// SYSTEM PROMPT
+// BETTER SYSTEM PROMPT
 // ==========================
 const systemPrompt = `
 သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
 
 စည်းကမ်းများ:
 - မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
-- Step-by-step ရှင်းပြပါ
+- အလွန်ရှင်းလင်းပြီး Step-by-step ရှင်းပြပါ
 - Beginner-friendly ဖြစ်ရမည်
 - ဥပမာများ ထည့်ပါ
-- မသိပါက "မသိပါ" ဟုသာ ပြန်ဖြေပါ
+- အကြောင်းအရာကို တစ်ဆင့်ချင်းရှင်းပြပါ
+- သက်ဆိုင်သော အချက်အလက်ရှိပါက အဲဒါကို အခြေခံပြီး ဖြေပါ
+- မရှိပါကသာ "မသိပါ" ဟု ပြန်ဖြေပါ
 `;
 
 // ==========================
@@ -162,26 +164,22 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// CHAT API (FIXED)
+// CHAT API (FINAL FIX)
 // ==========================
 app.post("/chat", async (req, res) => {
   try {
-    const userMessage = req.body.message;
+    const userMessage = req.body.message?.trim();
 
-    if (!userMessage || !userMessage.trim()) {
+    if (!userMessage) {
       return res.json({ reply: "စာတစ်ခုခု ရိုက်ထည့်ပါ။" });
     }
 
     let relevantChunks = searchRelevantChunks(userMessage);
     let context = relevantChunks.join("\n\n");
 
-if (!context) {
-  context = chunks.slice(0, 5).join("\n\n"); // fallback
-}
-
-    // ✅ FALLBACK (IMPORTANT FIX)
+    // ✅ fallback (always have context)
     if (!context) {
-      context = chunks.slice(0, 3).join("\n\n");
+      context = chunks.slice(0, 5).join("\n\n");
     }
 
     const messages = [
@@ -190,9 +188,11 @@ if (!context) {
       {
         role: "system",
         content: `
-You MUST answer ONLY using the knowledge below.
+Use the knowledge below to answer the question.
 
-If answer is not found, say: "မသိပါ"
+If relevant information exists, explain clearly from it.
+If partially relevant, still answer using best match.
+Only say "မသိပါ" if truly no information exists.
 
 ===== KNOWLEDGE =====
 ${context}
@@ -205,7 +205,7 @@ ${context}
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
       messages,
-      temperature: 0.5,
+      temperature: 0.4,
       max_tokens: 1500
     });
 
