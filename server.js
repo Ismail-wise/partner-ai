@@ -108,7 +108,7 @@ async function loadPDFs() {
 // SEARCH ENGINE (IMPROVED)
 // ==========================
 function searchRelevantChunks(query) {
-  const words = query.toLowerCase().split(/\s+/);
+  const cleanQuery = query.toLowerCase();
 
   return chunks
     .map(chunk => {
@@ -116,14 +116,20 @@ function searchRelevantChunks(query) {
 
       let score = 0;
 
-      for (const w of words) {
-        if (text.includes(w)) score += 2;
-      }
+      // strong match
+      if (text.includes(cleanQuery)) score += 10;
 
-      if (text.includes(query.toLowerCase())) score += 5;
+      // partial word match
+      const words = cleanQuery.split(/\s+/);
+      for (const w of words) {
+        if (w.length > 2 && text.includes(w)) {
+          score += 2;
+        }
+      }
 
       return { text: chunk, score };
     })
+    .filter(c => c.score > 0) // ❗ IMPORTANT
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
     .map(c => c.text);
@@ -168,6 +174,10 @@ app.post("/chat", async (req, res) => {
 
     let relevantChunks = searchRelevantChunks(userMessage);
     let context = relevantChunks.join("\n\n");
+
+if (!context) {
+  context = chunks.slice(0, 5).join("\n\n"); // fallback
+}
 
     // ✅ FALLBACK (IMPORTANT FIX)
     if (!context) {
