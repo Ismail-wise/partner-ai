@@ -33,14 +33,45 @@ const openai = new OpenAI({
 });
 
 // ==========================
+// EMBEDDING FUNCTION (ADD HERE)
+// ==========================
+async function getEmbedding(text) {
+  try {
+    // ✅ ensure valid string
+    if (!text || typeof text !== "string") return null;
+
+    // ✅ clean + limit text
+    const cleanText = text
+      .replace(/\s+/g, " ")
+      .replace(/[^\x00-\x7F]/g, "") // remove broken chars
+      .slice(0, 1000);
+
+    if (!cleanText) return null;
+
+    const res = await openai.embeddings.create({
+      model: "text-embedding-3-small",
+      input: cleanText
+    });
+
+    return res.data[0].embedding;
+
+  } catch (err) {
+    console.log("❌ Embedding error:", err.message);
+    return null;
+  }
+}
+
+// ==========================
 // MEMORY STORAGE
 // ==========================
 let chunks = [];
+let chatHistory = [];
+let vectorDB = [];
 
 // ==========================
 // TEXT SPLITTER
 // ==========================
-function splitText(text, size = 300) {
+function splitText(text, size = 100) {
   const words = text.split(/\s+/);
   let result = [];
 
@@ -106,39 +137,48 @@ async function loadPDFs() {
   }
 }
 
+async function buildVectorDB() {
+  console.log("🔄 Building vector DB...");
+
+  for (const chunk of chunks) {
+    const embedding = await getEmbedding(chunk);
+
+    if (!embedding) continue;
+
+vectorDB.push({
+  text: chunk,
+  embedding
+});
+  }
+
+  console.log("✅ Vector DB ready:", vectorDB.length);
+}
+
 // ==========================
 // SMART SEARCH (FIXED)
 // ==========================
-function searchRelevantChunks(query) {
-  const cleanQuery = query.toLowerCase();
+function cosineSimilarity(a, b) {
+  return a.reduce((sum, val, i) => sum + val * b[i], 0);
+}
 
-  return chunks
-    .map(chunk => {
-      const text = chunk.toLowerCase();
-      let score = 0;
+async function searchRelevantChunks(query) {
+  const queryEmbedding = await getEmbedding(query);
 
-      // strong match
-      if (text.includes(cleanQuery)) score += 10;
-
-      // partial match
-      const words = cleanQuery.split(/\s+/);
-      for (const w of words) {
-        if (w.length > 2 && text.includes(w)) {
-          score += 2;
-        }
-      }
-
-      return { text: chunk, score };
-    })
+  return vectorDB
+    .map(item => ({
+      text: item.text,
+      score: cosineSimilarity(queryEmbedding, item.embedding)
+    }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 5)
-    .map(c => c.text);
+    .map(i => i.text);
 }
 
 // ==========================
 // LOAD PDFs ON START
 // ==========================
 await loadPDFs();
+await buildVectorDB();
 
 // ==========================
 // BETTER SYSTEM PROMPT
@@ -147,13 +187,14 @@ const systemPrompt = `
 သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
 
 စည်းကမ်းများ:
-- မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
-- အလွန်ရှင်းလင်းပြီး Step-by-step ရှင်းပြပါ
+- မြန်မာဘာသာဖြင့်သာ ဖြေပါ
+- Step-by-step ရှင်းပြပါ
 - Beginner-friendly ဖြစ်ရမည်
 - ဥပမာများ ထည့်ပါ
-- အကြောင်းအရာကို တစ်ဆင့်ချင်းရှင်းပြပါ
-- သက်ဆိုင်သော အချက်အလက်ရှိပါက အဲဒါကို အခြေခံပြီး ဖြေပါ
-- မရှိပါကသာ "မသိပါ" ဟု ပြန်ဖြေပါ
+- PDF ထဲမှ အချက်အလက်ကို အဓိကအသုံးပြုပါ
+- မသိပါက "မသိပါ" ဟုသာ ပြန်ဖြေပါ
+
+User ကို သင်ကြားရန် အဓိကထားပါ။
 `;
 
 // ==========================
@@ -174,7 +215,7 @@ app.post("/chat", async (req, res) => {
       return res.json({ reply: "စာတစ်ခုခု ရိုက်ထည့်ပါ။" });
     }
 
-    let relevantChunks = searchRelevantChunks(userMessage);
+    let relevantChunks = await searchRelevantChunks(userMessage);
     let context = relevantChunks.join("\n\n");
 
     // ✅ fallback (always have context)
@@ -182,25 +223,21 @@ app.post("/chat", async (req, res) => {
       context = chunks.slice(0, 5).join("\n\n");
     }
 
-    const messages = [
-      { role: "system", content: systemPrompt },
+    chatHistory.push({ role: "user", content: userMessage });
 
-      {
-        role: "system",
-        content: `
-Use the knowledge below to answer the question.
+// keep last 10 messages
+chatHistory = chatHistory.slice(-10);
 
-If relevant information exists, explain clearly from it.
-If partially relevant, still answer using best match.
-Only say "မသိပါ" if truly no information exists.
+const messages = [
+  { role: "system", content: systemPrompt },
 
-===== KNOWLEDGE =====
-${context}
-`
-      },
+  {
+    role: "system",
+    content: `Knowledge:\n${context}`
+  },
 
-      { role: "user", content: userMessage }
-    ];
+  ...chatHistory
+];
 
     const response = await openai.chat.completions.create({
       model: "gpt-4o",
@@ -210,9 +247,15 @@ ${context}
     });
 
     const reply =
-      response.choices?.[0]?.message?.content || "⚠️ No response";
+  response.choices?.[0]?.message?.content || "⚠️ No response";
 
-    res.json({ reply });
+// ✅ ADD THIS HERE
+chatHistory.push({
+  role: "assistant",
+  content: reply
+});
+
+res.json({ reply });
 
   } catch (err) {
     console.error("❌ ERROR:", err.message);
