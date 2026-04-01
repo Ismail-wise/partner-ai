@@ -216,8 +216,10 @@ app.post("/chat", async (req, res) => {
     }
 
     let relevantChunks = await searchRelevantChunks(userMessage);
-    console.log("🔍 Relevant chunks:", relevantChunks);
-    let context = relevantChunks.join("\n\n");
+
+console.log("🔍 Relevant chunks:", relevantChunks); // MUST be here
+
+let context = relevantChunks.join("\n\n");
 
     // ✅ fallback (always have context)
     if (!context) {
