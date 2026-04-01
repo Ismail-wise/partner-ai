@@ -10,23 +10,13 @@ import OpenAI from "openai";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 
-// PDF LIB
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
-// ==========================
-// PATH SETUP
-// ==========================
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// ==========================
-// APP INIT
-// ==========================
 const app = express();
 
-// ==========================
-// MIDDLEWARE
-// ==========================
 app.use(rateLimit({
   windowMs: 60 * 1000,
   max: 50
@@ -43,13 +33,15 @@ const openai = new OpenAI({
 });
 
 // ==========================
-// SMART MEMORY SYSTEM
+// MEMORY STORAGE
 // ==========================
 let chunks = [];
 
-// 🔹 Split text into chunks
+// ==========================
+// TEXT SPLITTER
+// ==========================
 function splitText(text, size = 300) {
-  const words = text.split(" ");
+  const words = text.split(/\s+/);
   let result = [];
 
   for (let i = 0; i < words.length; i += size) {
@@ -59,7 +51,6 @@ function splitText(text, size = 300) {
   return result;
 }
 
-// 🔹 Load PDFs and create chunks
 async function loadPDFs() {
   try {
     const folderPath = path.join(__dirname, "docs");
@@ -93,11 +84,12 @@ async function loadPDFs() {
         }
 
       } catch (fileErr) {
-        console.log(`⚠️ Failed to read ${file}:`, fileErr.message);
+        console.log(`❌ Failed to read ${file}:`, fileErr.message);
       }
     }
 
-    if (!allText) {
+    // ✅ MUST BE INSIDE FUNCTION
+    if (!allText.trim()) {
       console.log("⚠️ No text extracted from PDFs");
       return;
     }
@@ -105,24 +97,30 @@ async function loadPDFs() {
     chunks = splitText(allText, 300);
 
     console.log(`✅ Created ${chunks.length} chunks`);
+    console.log("🔥 Sample:", chunks[0]?.slice(0, 200));
 
   } catch (err) {
-    console.log("❌ PDF SYSTEM ERROR:", err.message);
+    console.log("❌ PDF ERROR:", err.message);
   }
 }
 
-// 🔹 Search relevant chunks
+// ==========================
+// SEARCH ENGINE (IMPROVED)
+// ==========================
 function searchRelevantChunks(query) {
-  const words = query.toLowerCase().split(" ");
+  const words = query.toLowerCase().split(/\s+/);
 
   return chunks
     .map(chunk => {
       const text = chunk.toLowerCase();
 
       let score = 0;
+
       for (const w of words) {
-        if (text.includes(w)) score++;
+        if (text.includes(w)) score += 2;
       }
+
+      if (text.includes(query.toLowerCase())) score += 5;
 
       return { text: chunk, score };
     })
@@ -137,20 +135,17 @@ function searchRelevantChunks(query) {
 await loadPDFs();
 
 // ==========================
-// SYSTEM PROMPT (UPGRADED)
+// SYSTEM PROMPT
 // ==========================
 const systemPrompt = `
-သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော အတွေ့အကြုံရှိ AI ဆရာဖြစ်သည်။
+သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
 
 စည်းကမ်းများ:
 - မြန်မာဘာသာဖြင့်သာ ပြန်ဖြေပါ
-- အလွန်အသေးစိတ်ပြီး နားလည်လွယ်အောင် ရှင်းပြပါ
-- အကြောင်းအရာကို အဆင့်လိုက် (Step-by-step) ခွဲခြားပြီး ရှင်းပြပါ
-- ဥပမာများကို လိုအပ်သလို ထည့်ပါ
-- Bullet points ဖြင့် ရှင်းပြနိုင်ပါက အသုံးပြုပါ
-- အခြေခံမှစ၍ ရှင်းပြပါ (Beginner friendly)
-- အဖြေကို အပြည့်အစုံ ရှင်းပြပါ (Short မဖြစ်စေရ)
-- မသိပါက မသိကြောင်းရှင်းပြပါ
+- Step-by-step ရှင်းပြပါ
+- Beginner-friendly ဖြစ်ရမည်
+- ဥပမာများ ထည့်ပါ
+- မသိပါက "မသိပါ" ဟုသာ ပြန်ဖြေပါ
 `;
 
 // ==========================
@@ -161,7 +156,7 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// CHAT API (SMART)
+// CHAT API (FIXED)
 // ==========================
 app.post("/chat", async (req, res) => {
   try {
@@ -171,9 +166,13 @@ app.post("/chat", async (req, res) => {
       return res.json({ reply: "စာတစ်ခုခု ရိုက်ထည့်ပါ။" });
     }
 
-    // 🔥 Get relevant content
-    const relevantChunks = searchRelevantChunks(userMessage);
-    const context = relevantChunks.join("\n\n");
+    let relevantChunks = searchRelevantChunks(userMessage);
+    let context = relevantChunks.join("\n\n");
+
+    // ✅ FALLBACK (IMPORTANT FIX)
+    if (!context) {
+      context = chunks.slice(0, 3).join("\n\n");
+    }
 
     const messages = [
       { role: "system", content: systemPrompt },
@@ -181,19 +180,12 @@ app.post("/chat", async (req, res) => {
       {
         role: "system",
         content: `
-အောက်ပါအချက်အလက်များကို အခြေခံပြီး အလွန်အသေးစိတ်၊ အဆင့်လိုက်ရှင်းပြပါ:
+You MUST answer ONLY using the knowledge below.
 
-${context || "ဆိုင်ရာ အချက်အလက် မရှိပါ"}
-`
-      },
+If answer is not found, say: "မသိပါ"
 
-      {
-        role: "system",
-        content: `
-အဖြေကို အပြည့်အစုံ ရှင်းပြပါ။
-Step-by-step format အသုံးပြုပါ။
-ဥပမာများပါ ထည့်ပါ။
-ရှင်းလင်းမှုကို အထူးအလေးထားပါ။
+===== KNOWLEDGE =====
+${context}
 `
       },
 
@@ -201,11 +193,11 @@ Step-by-step format အသုံးပြုပါ။
     ];
 
     const response = await openai.chat.completions.create({
-  model: "gpt-4o", // ✅ just change this
-  messages,
-  temperature: 0.7,
-  max_tokens: 1500
-});
+      model: "gpt-4o",
+      messages,
+      temperature: 0.5,
+      max_tokens: 1500
+    });
 
     const reply =
       response.choices?.[0]?.message?.content || "⚠️ No response";
