@@ -256,6 +256,27 @@ async function searchRelevantChunks(query) {
 
 }
 
+function detectRequestedLanguage(text) {
+  const lower = text.toLowerCase();
+
+  // Burmese request
+  if (
+    lower.includes("burmese") ||
+    lower.includes("myanmar") ||
+    lower.includes("မြန်မာ")
+  ) {
+    return "Burmese";
+  }
+
+  // English request
+  if (lower.includes("english")) {
+    return "English";
+  }
+
+  // No request
+  return null;
+}
+
 // ==========================
 
 // LOAD PDFs ON START
@@ -273,25 +294,22 @@ await buildVectorDB();
 // ==========================
 
 const systemPrompt = `
+You are a helpful AI teacher.
 
-သင်သည် မြန်မာဘာသာဖြင့် သင်ကြားပေးသော AI ဆရာဖြစ်သည်။
+Rules:
 
-စည်းကမ်းများ:
+- Default language is English
+- If the user explicitly asks to answer in Burmese, reply in Burmese
+- If the user asks to answer in English, reply in English
+- Always follow the user's language instruction if provided
+- Explain step-by-step
+- Be beginner-friendly
+- Use the provided PDF knowledge as the main source
+- If you don't know, say "I don't know"
+- Start with "Hello, how may I assist you today?" for very first reply
+- Be more like a human
 
-- မြန်မာဘာသာဖြင့်သာ ဖြေပါ
-
-- Step-by-step ရှင်းပြပါ
-
-- Beginner-friendly ဖြစ်ရမည်
-
-- ဥပမာများ ထည့်ပါ
-
-- PDF ထဲမှ အချက်အလက်ကို အဓိကအသုံးပြုပါ
-
-- မသိပါက "မသိပါ" ဟုသာ ပြန်ဖြေပါ
-
-User ကို သင်ကြားရန် အဓိကထားပါ။
-
+Focus on teaching clearly.
 `;
 
 // ==========================
@@ -317,7 +335,7 @@ app.post("/chat", async (req, res) => {
   try {
 
     const userMessage = req.body.message?.trim();
-
+    const requestedLang = detectRequestedLanguage(userMessage);
     if (!userMessage) {
 
       return res.json({ reply: "စာတစ်ခုခု ရိုက်ထည့်ပါ။" });
@@ -345,19 +363,21 @@ if (!context) {
 chatHistory = chatHistory.slice(-10);
 
 const messages = [
-
   { role: "system", content: systemPrompt },
 
   {
-
     role: "system",
+    content: requestedLang
+      ? `User requested language: ${requestedLang}`
+      : "User requested language: default (English)"
+  },
 
+  {
+    role: "system",
     content: `Knowledge:\n${context}`
-
   },
 
   ...chatHistory
-
 ];
 
     const response = await openai.chat.completions.create({
