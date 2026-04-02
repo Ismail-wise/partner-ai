@@ -55,43 +55,26 @@ const openai = new OpenAI({
 // ==========================
 
 async function getEmbedding(text) {
-
   try {
-
-    // ✅ ensure valid string
-
     if (!text || typeof text !== "string") return null;
 
-    // ✅ clean + limit text
-
     const cleanText = text
-
       .replace(/\s+/g, " ")
-
-      .replace(/[^\x00-\x7F]/g, "") // remove broken chars
-
-      .slice(0, 1000);
+      .slice(0, 2000);
 
     if (!cleanText) return null;
 
     const res = await openai.embeddings.create({
-
       model: "text-embedding-3-small",
-
       input: cleanText
-
     });
 
     return res.data[0].embedding;
 
   } catch (err) {
-
     console.log("❌ Embedding error:", err.message);
-
     return null;
-
   }
-
 }
 
 // ==========================
@@ -174,9 +157,11 @@ async function loadPDFs() {
 
           const content = await page.getTextContent();
 
-          const strings = content.items.map(item => item.str);
+          const strings = content.items
+  .map(item => item.str)
+  .filter(str => str && str.trim().length > 0);
 
-          allText += strings.join(" ") + "\n";
+allText += strings.join(" ") + "\n";
 
         }
 
@@ -241,9 +226,12 @@ vectorDB.push({
 // ==========================
 
 function cosineSimilarity(a, b) {
+  const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
 
-  return a.reduce((sum, val, i) => sum + val * b[i], 0);
+  const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
+  const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
 
+  return dot / (normA * normB);
 }
 
 async function searchRelevantChunks(query) {
@@ -338,17 +326,17 @@ app.post("/chat", async (req, res) => {
 
     let relevantChunks = await searchRelevantChunks(userMessage);
 
-console.log("🔍 Relevant chunks:", relevantChunks); // MUST be here
+console.log("🔍 Relevant chunks:", relevantChunks);
 
 let context = relevantChunks.join("\n\n");
 
-    // ✅ fallback (always have context)
+// ✅ DEBUG HERE
+console.log("🧠 Using context:\n", context.slice(0, 500));
 
-    if (!context) {
-
-      context = chunks.slice(0, 10).join("\n\n");
-
-    }
+// fallback
+if (!context) {
+  context = chunks.slice(0, 10).join("\n\n");
+}
 
     chatHistory.push({ role: "user", content: userMessage });
 
