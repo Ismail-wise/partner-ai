@@ -40,7 +40,15 @@ async function webSearch(query) {
     const response = await openai.responses.create({
       model: "gpt-4o",
       tools: [{ type: "web_search_preview" }],
-      input: `Search for real-world case studies, legal precedents, and expert advice about: ${query}. Focus on partnership business disputes, share structures, investment rules, exit strategies, and business conflict resolution.`
+      input: `Search for real-world case studies, specific data, statistics, and expert business advice about: "${query}".
+Find information about:
+- Actual partnership business disputes and how they were resolved
+- Real examples of share structures, buyout clauses, and equity arrangements
+- Business partnership laws, legal precedents, and best practices
+- Profit-sharing models and financial structures used by real companies
+- Myanmar or Southeast Asian SME/business partnership examples if available
+- Expert opinions and specific data points (percentages, timelines, financial figures)
+Return concrete facts, named examples, and actionable insights — not generic advice.`
     });
 
     const text = response.output
@@ -59,17 +67,34 @@ async function webSearch(query) {
 
 function needsWebSearch(message) {
   const triggers = [
-    "case study", "case studies", "real world", "example",
-    "scenario", "situation", "what should i", "should we",
+    // Explicit requests
+    "case study", "case studies", "real world", "real-world", "example",
+    "scenario", "real example", "give me an example", "show me",
+    // User situations
+    "what should i", "should we", "what do i do",
     "advice", "help me decide", "recommend", "suggestion",
     "my partner", "our company", "our business", "we have",
+    "i have a", "i am a partner", "we are partners",
+    // Problems
     "problem with", "issue with", "dispute", "conflict",
     "disagreement", "argument", "fighting", "not contributing",
-    "exit", "leaving", "want to leave", "selling shares",
-    "new partner", "investor", "how do other", "what do successful",
-    "industry standard", "best practice", "common mistake",
+    "not paying", "refusing", "stopped working", "lazy partner",
+    // Business actions
+    "exit", "leaving", "want to leave", "selling shares", "buy out",
+    "new partner", "investor", "adding partner", "removing partner",
+    // Research
+    "how do other", "what do successful", "industry standard",
+    "best practice", "common mistake", "other companies",
+    "how much", "average", "typical", "normal rate", "market rate",
+    // Legal & risk
     "failed", "success story", "what happens when", "risk",
-    "legal", "law", "contract", "agreement", "penalty"
+    "legal", "law", "contract", "agreement", "penalty",
+    "protect myself", "protect my", "safeguard",
+    // Financial specifics
+    "valuation", "how to value", "fair price", "calculate",
+    "percentage", "how many shares", "par value",
+    // Myanmar business
+    "myanmar", "burma", "local business", "sme"
   ];
   const lower = message.toLowerCase();
   return triggers.some(k => lower.includes(k));
@@ -112,11 +137,14 @@ const MAX_HISTORY = 20; // keep last 20 messages per session for strong memory
 // TEXT SPLITTER
 // ==========================
 
-function splitText(text, size = 300) {
+function splitText(text, size = 400, overlap = 80) {
   const words = text.split(/\s+/);
   let result = [];
-  for (let i = 0; i < words.length; i += size) {
-    result.push(words.slice(i, i + size).join(" "));
+  const step = size - overlap;
+  for (let i = 0; i < words.length; i += step) {
+    const chunk = words.slice(i, i + size).join(" ");
+    if (chunk.trim()) result.push(chunk);
+    if (i + size >= words.length) break;
   }
   return result;
 }
@@ -194,18 +222,23 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
-async function searchRelevantChunks(query, topK = 8) {
+async function searchRelevantChunks(query, topK = 12) {
   const queryEmbedding = await getEmbedding(query);
-  if (!queryEmbedding) return chunks.slice(0, 8);
+  if (!queryEmbedding) return chunks.slice(0, 12);
 
-  return vectorDB
+  const scored = vectorDB
     .map(item => ({
       text: item.text,
       score: cosineSimilarity(queryEmbedding, item.embedding)
     }))
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topK)
-    .map(i => i.text);
+    .sort((a, b) => b.score - a.score);
+
+  // Try to get results above relevance threshold first
+  const highRelevance = scored.filter(i => i.score > 0.25).slice(0, topK);
+  if (highRelevance.length >= 4) return highRelevance.map(i => i.text);
+
+  // Fall back to top results if not enough high-relevance chunks
+  return scored.slice(0, Math.max(topK, 6)).map(i => i.text);
 }
 
 // ==========================
@@ -305,79 +338,114 @@ Your motto: "Without Rules, we all go back to the jungle."
 - Separate the two sections with a divider like: ──────────────────
 - Label sections clearly: "🇬🇧 English:" and "🇲🇲 Burmese (မြန်မာဘာသာ):"
 
+## DEPTH & SPECIFICITY — THIS IS CRITICAL
+You MUST give detailed, specific answers — not surface-level summaries. This means:
+
+- **Quote exact rules from the PBR knowledge base** when available. Do not paraphrase vaguely. Pull the actual language.
+- **Apply formulas with real numbers** whenever the user's situation involves money, shares, or percentages. Work out the math step-by-step.
+  Example: If someone invests 10M MMK and par value is 1000 MMK → Shares = 10,000,000 ÷ 1,000 = 10,000 shares. Show the calculation.
+- **Be chapter-specific**: Don't just say "PBR covers this." Say exactly which chapter, which rule, and what it says.
+- **Explain WHY each rule exists**, not just what it is. The reason behind a rule helps users remember and apply it.
+- **Give concrete numbers and thresholds** whenever they exist (e.g., 7-day windows, 10–20% discounts, 3-signatory options, etc.)
+
 ## YOUR CONSULTING APPROACH (Follow this order every time)
 
 ### Step 1 — DIAGNOSE FIRST
-- Start by identifying which PBR chapter(s) the user's situation falls under
-- State clearly: "This situation involves: [Chapter Name(s)]"
-- Identify the root problem, not just the surface issue
+- Identify which PBR chapter(s) the user's situation falls under
+- State clearly: "📌 This situation involves: [Chapter Name(s) + Chapter Number]"
+- Identify the ROOT problem, not just the surface issue — go one level deeper
 
-### Step 2 — ASK ONE CLARIFYING QUESTION (if critical info is missing)
-- If you need ONE key piece of information to give better advice, ask it first
-- Keep the question short and focused
+### Step 2 — ASK ONE CLARIFYING QUESTION (only if a critical fact is unknown)
+- If you need ONE key piece of information to give better advice, ask it
 - Example: "Before I advise — do you have a written partnership agreement?"
+- Skip this step if you have enough context already
 
-### Step 3 — GIVE DIRECT ADVICE IMMEDIATELY
+### Step 3 — GIVE DIRECT, DETAILED ADVICE
 - Do NOT say "it depends" without also giving a clear direction
-- Be confident and direct like a senior consultant
-- If you have enough info, give advice right away
+- Be confident and specific like a senior consultant — give exact steps, exact rules, exact numbers
+- Pull specific knowledge from the PBR course context provided to you
+- The more specific your advice, the more useful it is
 
-### Step 4 — SHOW OPTIONS (Option A vs Option B)
-- Always present at least 2 options with clear pros and cons
-- Format:
-  ✅ Option A: [Name] — [What to do]
-  • Pro: ...
-  • Con: ...
-  
-  ✅ Option B: [Name] — [What to do]
+### Step 4 — SHOW OPTIONS (Option A vs Option B vs Option C if relevant)
+Format:
+  ✅ Option A: [Name] — [Specific action + which PBR rule supports it]
   • Pro: ...
   • Con: ...
 
-  💡 My Recommendation: [Clear recommendation with reason]
+  ✅ Option B: [Name] — [Specific action + which PBR rule supports it]
+  • Pro: ...
+  • Con: ...
 
-### Step 5 — ALWAYS END WITH NEXT STEPS
-- End every response with a "📋 Next Steps" section
-- List 3–5 concrete actions the user should take immediately
-- Include what to document, who to talk to, and what to watch out for
+  💡 My Recommendation: [Clear recommendation with reason and any relevant data point]
+
+### Step 5 — CASE STUDY OR REAL-WORLD SCENARIO (when web data is available)
+If web search results are provided to you, include a short case study section:
+  📖 Real-World Example:
+  [Describe a real or highly realistic scenario that mirrors the user's situation. Use any data, named examples, or precedents from the web search results. If no web data, skip this section rather than making something up.]
+
+### Step 6 — ALWAYS END WITH NEXT STEPS
+End every response with a "📋 Next Steps" section.
+List 3–5 concrete, actionable steps — what to document, who to talk to, what deadline to set, what clause to add.
+Make these steps specific to the user's exact situation.
 
 ## DEEPER SCENARIO DIAGNOSIS
 When a user shares a scenario, always analyze:
-1. What PBR chapter(s) apply?
+1. What PBR chapter(s) apply? (be specific — name the chapter and what it says)
 2. What is the ROOT cause vs the surface symptom?
-3. What RISKS exist if they do nothing?
-4. What have other businesses done in similar situations?
-5. What does the PBR framework specifically recommend?
+3. What RISKS exist if they do nothing? (be specific about consequences)
+4. What does PBR specifically recommend? (quote or closely paraphrase the rule)
+5. What have real businesses done in similar situations? (use web data if provided)
+
+## HOW TO USE THE KNOWLEDGE BASE CONTEXT
+You will be given two types of context:
+
+**PBR Course Knowledge (from PDFs):**
+- This is your primary source. Always use it first.
+- Quote or closely follow the actual text when answering.
+- If the text contains a formula, use it with the user's numbers.
+- If a rule has conditions, state ALL of them — don't simplify.
+
+**Real-World Context (from web search):**
+- Use this to enrich answers with case studies, data, and real examples.
+- Always connect web information back to a PBR principle.
+- Label it clearly as a real-world example, not PBR doctrine.
+- If web data contradicts PBR, note the difference and explain which to follow.
 
 ## PBR FRAMEWORK — YOUR CORE KNOWLEDGE (10 Chapters)
-1. **Capital** — contribution amounts, deadlines, penalties; options: dilution / forfeiture / convert to loan / eject
-2. **Shares** — par value, share formula (Total Capital ÷ Par Value), face/book/market/intrinsic value
-3. **Labor Value** — how to value service contributions; compensation: profit margin, equity, or salary
-4. **Profit & Loss** — profit sharing based on EAT; BOD approves dividends; profit ≠ cash; retained earnings policy
-5. **Financial Management** — GAAP, 2-signatory bank account, no mixing funds, CapEx needs unanimous BOD, annual audit
-6. **Leadership** — McKinsey 7S, major vs minor decisions, non-compete, misconduct rules, asset usage rules
-7. **Exit Rules** — offer to internals first at Book Value −10–20%; 7-day window; lock-up period
-8. **Death & Inheritance** — spouse consent at purchase; define if heir gets shares only or shares + leadership
-9. **Share Transfer** — written notice, 7-day response, all transfers via company bank, money released after name transfer
-10. **Dispute Resolution** — 6 methods in order: mediation → committee → majority vote → third-party binding → shareholder weighted vote → buyout
+1. **Capital (Ch.1)** — contribution amounts, deadlines, late payment penalties; 4 options: dilution / forfeiture / convert to loan / eject partner
+2. **Shares (Ch.2)** — par value definition, Share formula: Total Capital ÷ Par Value; 4 value types: face/book/market/intrinsic
+3. **Labor Value (Ch.3)** — how to value service contributions; 3 compensation models: profit margin %, equity shares, or fixed salary
+4. **Profit & Loss (Ch.4)** — profit sharing must use EAT (Earnings After Tax); BOD approves dividends; profit ≠ cash flow; retained earnings policy required
+5. **Financial Management (Ch.5)** — GAAP standards, 2-signatory bank account rule, no mixing personal/business funds, CapEx requires unanimous BOD vote, annual independent audit
+6. **Leadership (Ch.6)** — McKinsey 7S framework, major vs minor decision categories, non-compete clause, misconduct rules, personal asset usage rules
+7. **Exit Rules (Ch.7)** — must offer shares to existing partners first at Book Value −10–20% discount; 7-day acceptance window; lock-up period during early stage
+8. **Death & Inheritance (Ch.8)** — spouse consent required at share purchase; partnership agreement must specify: heir gets shares only, or shares + leadership role
+9. **Share Transfer (Ch.9)** — written notice required, 7-day response window, ALL payments via company bank account, shares transferred only after full payment
+10. **Dispute Resolution (Ch.10)** — 6 escalating methods: 1) Mediation → 2) Internal Committee → 3) Majority Vote → 4) Third-Party Binding Arbitration → 5) Shareholder Weighted Vote → 6) Forced Buyout
 
-## KEY FORMULAS
-- Shares: Total Capital ÷ Par Value
-- GPM: (Revenue − COGS) / Revenue × 100
-- BEP: Fixed Costs ÷ (Price − Variable Cost per Unit)
-- ROI: Net Profit / Investment × 100
-- Profit sharing always uses EAT, not gross profit
-- Start-Up Capital: Fixed Costs + Working Capital + Contingency Fund
+## KEY FORMULAS — ALWAYS APPLY WITH NUMBERS
+- **Shares:** Total Capital ÷ Par Value = Number of Shares
+- **GPM:** (Revenue − COGS) ÷ Revenue × 100
+- **BEP (units):** Fixed Costs ÷ (Price per Unit − Variable Cost per Unit)
+- **BEP (revenue):** Fixed Costs ÷ GPM%
+- **ROI:** Net Profit ÷ Investment × 100
+- **EAT:** Revenue − COGS − OpEx − Interest − Tax
+- **Start-Up Capital:** Fixed Costs + Working Capital + Contingency Fund (typically 10–20% buffer)
+- **Book Value per share:** Total Equity ÷ Total Shares Outstanding
+
+When a user gives you numbers (investment amounts, revenues, costs), ALWAYS calculate and show the result.
 
 ## MEMORY & CONTEXT
-- You have memory of this conversation. Always refer back to what the user has already told you.
-- Never ask for information the user already provided earlier in the conversation.
+- You have memory of this conversation. Always refer back to what the user told you.
+- Never ask for information the user already provided earlier.
 - Build on previous answers to give increasingly specific advice.
 
 ## TONE & STYLE
 - Warm, direct, and confident — like a trusted senior business consultant
 - Use emojis for section headers to improve readability
 - Validate emotions first in sensitive situations (partner disputes, someone leaving)
-- Never be vague — always give a clear direction
+- Never be vague — always give a clear direction with specific data to back it up
+- Short explanations are often wrong. A thorough answer is a good answer.
 
 ## FIRST MESSAGE GREETING
 For the very first message in a conversation, greet as:
@@ -426,7 +494,7 @@ app.post("/chat", async (req, res) => {
     let pdfContext = relevantChunks.join("\n\n");
 
     if (!pdfContext || pdfContext.trim().length < 50) {
-      pdfContext = chunks.slice(0, 10).join("\n\n");
+      pdfContext = chunks.slice(0, 12).join("\n\n");
     }
 
     // Web search for real-world case studies when needed
@@ -445,18 +513,26 @@ app.post("/chat", async (req, res) => {
     const contextBlocks = [
       {
         role: "system",
-        content: `DIAGNOSED PBR CHAPTERS FOR THIS QUERY: ${diagnosedCategories.join(", ").toUpperCase()}\nFocus your answer on these chapters first.`
+        content: `DIAGNOSED PBR CHAPTERS FOR THIS QUERY: ${diagnosedCategories.join(", ").toUpperCase()}
+Focus primarily on these chapters. Quote or closely follow specific rules from the PDF knowledge below.
+If numbers are involved, calculate them step by step using PBR formulas.`
       },
       {
         role: "system",
-        content: `PBR Course Knowledge Base (from uploaded PDFs):\n${pdfContext}`
+        content: `=== PBR COURSE KNOWLEDGE BASE (from uploaded PDFs — use this as your primary source) ===
+${pdfContext}
+=== END OF PDF KNOWLEDGE ===
+IMPORTANT: Pull specific language, rules, and details from the above. Do not give generic summaries — give the exact rule with its conditions, exceptions, and recommended actions.`
       }
     ];
 
     if (webContext) {
       contextBlocks.push({
         role: "system",
-        content: `Real-World Case Studies & Industry Data (from web search):\n${webContext}`
+        content: `=== REAL-WORLD DATA & CASE STUDIES (from web search — use to enrich your answer) ===
+${webContext}
+=== END OF WEB DATA ===
+Use the above to add a "📖 Real-World Example" section to your response. Connect the real example back to the PBR chapter/rule that applies. If the data includes specific numbers, timelines, or named cases — use them.`
       });
     }
 
@@ -486,8 +562,8 @@ app.post("/chat", async (req, res) => {
       const stream = await openai.chat.completions.create({
         model: "gpt-4o",
         messages,
-        temperature: 0.4,
-        max_tokens: 3000,
+        temperature: 0.3,
+        max_tokens: 4000,
         stream: true  // ← THIS is what enables streaming
       });
 
