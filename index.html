@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Partner AI</title>
+<title>Sayar Nyan Lin Aung's AI Chat</title>
 <style>
   *, *::before, *::after {
     box-sizing: border-box;
@@ -27,9 +27,7 @@
     --ai-msg: #111d35;
   }
 
-  html, body {
-    height: 100%;
-  }
+  html, body { height: 100%; }
 
   body {
     font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
@@ -94,9 +92,7 @@
     box-shadow: 0 0 20px rgba(59,130,246,0.4);
   }
 
-  .header-info {
-    flex: 1;
-  }
+  .header-info { flex: 1; }
 
   .header-info h1 {
     font-size: 15px;
@@ -106,6 +102,13 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+  }
+
+  .header-subtitle {
+    font-size: 10px;
+    color: var(--text-secondary);
+    margin-top: 1px;
+    letter-spacing: 0.3px;
   }
 
   .header-status {
@@ -154,22 +157,13 @@
     scroll-behavior: smooth;
   }
 
-  .chat-box::-webkit-scrollbar {
-    width: 5px;
-  }
-
-  .chat-box::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
+  .chat-box::-webkit-scrollbar { width: 5px; }
+  .chat-box::-webkit-scrollbar-track { background: transparent; }
   .chat-box::-webkit-scrollbar-thumb {
     background: rgba(59,130,246,0.25);
     border-radius: 10px;
   }
-
-  .chat-box::-webkit-scrollbar-thumb:hover {
-    background: rgba(59,130,246,0.45);
-  }
+  .chat-box::-webkit-scrollbar-thumb:hover { background: rgba(59,130,246,0.45); }
 
   /* ── WELCOME ── */
   .welcome-screen {
@@ -197,7 +191,7 @@
   }
 
   .welcome-screen h2 {
-    font-size: 22px;
+    font-size: 20px;
     font-weight: 700;
     background: linear-gradient(90deg, #e0f2fe, #a5f3fc);
     -webkit-background-clip: text;
@@ -208,8 +202,15 @@
   .welcome-screen p {
     font-size: 13px;
     color: var(--text-secondary);
-    max-width: 340px;
+    max-width: 380px;
     line-height: 1.6;
+  }
+
+  .welcome-motto {
+    font-size: 11px;
+    color: #06b6d4;
+    font-style: italic;
+    opacity: 0.85;
   }
 
   .welcome-chips {
@@ -245,9 +246,7 @@
     animation: fadeUp 0.25s ease;
   }
 
-  .message-row.user {
-    flex-direction: row-reverse;
-  }
+  .message-row.user { flex-direction: row-reverse; }
 
   @keyframes fadeUp {
     from { opacity: 0; transform: translateY(10px); }
@@ -272,15 +271,13 @@
     gap: 4px;
   }
 
-  .message-row.user .message-bubble {
-    align-items: flex-end;
-  }
+  .message-row.user .message-bubble { align-items: flex-end; }
 
   .message-text {
     padding: 11px 15px;
     border-radius: 16px;
     font-size: 13.5px;
-    line-height: 1.6;
+    line-height: 1.7;
     white-space: pre-wrap;
     word-break: break-word;
   }
@@ -297,6 +294,20 @@
     color: var(--text-primary);
     border-bottom-left-radius: 4px;
     border: 1px solid var(--border);
+  }
+
+  /* Streaming cursor blink */
+  .message-text.streaming::after {
+    content: "▍";
+    display: inline-block;
+    animation: cursor-blink 0.7s step-end infinite;
+    color: var(--accent-blue);
+    margin-left: 2px;
+  }
+
+  @keyframes cursor-blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
   }
 
   .message-time {
@@ -344,7 +355,7 @@
 
   .input-row {
     display: flex;
-    align-items: center;
+    align-items: flex-end;
     gap: 10px;
     background: var(--bg-input);
     border: 1px solid var(--border);
@@ -358,6 +369,7 @@
     box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
   }
 
+  /* textarea instead of input — allows long messages and Enter for new line */
   .chat-input {
     flex: 1;
     background: transparent;
@@ -368,6 +380,11 @@
     font-family: inherit;
     padding: 6px 0;
     caret-color: var(--accent-blue);
+    resize: none;
+    min-height: 36px;
+    max-height: 160px;
+    overflow-y: auto;
+    line-height: 1.5;
   }
 
   .chat-input::placeholder {
@@ -389,6 +406,8 @@
     flex-shrink: 0;
     transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
     box-shadow: 0 4px 14px rgba(59,130,246,0.35);
+    align-self: flex-end;
+    margin-bottom: 1px;
   }
 
   .send-btn:hover {
@@ -396,9 +415,8 @@
     box-shadow: 0 6px 20px rgba(59,130,246,0.5);
   }
 
-  .send-btn:active {
-    transform: scale(0.95);
-  }
+  .send-btn:active { transform: scale(0.95); }
+  .send-btn:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
 
   .send-btn svg {
     width: 17px;
@@ -406,12 +424,20 @@
     fill: currentColor;
   }
 
+  .input-hint {
+    font-size: 10px;
+    color: var(--text-secondary);
+    opacity: 0.5;
+    margin-top: 6px;
+    text-align: center;
+  }
+
   .input-footer {
     text-align: center;
     font-size: 10px;
     color: var(--text-secondary);
     opacity: 0.45;
-    margin-top: 8px;
+    margin-top: 4px;
   }
 
   /* ── RESPONSIVE ── */
@@ -428,28 +454,32 @@
 
   <!-- HEADER -->
   <div class="chat-header">
-    <div class="header-avatar">🤖</div>
+    <div class="header-avatar">🤝</div>
     <div class="header-info">
-      <h1>Partner AI</h1>
+      <h1>Sayar Nyan Lin Aung's AI Chat</h1>
+      <div class="header-subtitle">Partnership Business Rules Expert · Unlock Your Future</div>
       <div class="header-status">
         <span class="status-dot"></span>
         Online &amp; ready to help
       </div>
     </div>
-    <span class="header-badge">AI</span>
+    <span class="header-badge">PBR AI</span>
   </div>
 
   <!-- CHAT BOX -->
   <div id="chatBox" class="chat-box">
     <div class="welcome-screen" id="welcomeScreen">
-      <div class="welcome-icon">🤖</div>
-      <h2>How can I help you today?</h2>
-      <p>Ask me anything — I'm your intelligent partner for learning, problem-solving, and more.</p>
+      <div class="welcome-icon">🤝</div>
+      <h2>Sayar Nyan Lin Aung's AI Chat</h2>
+      <p>Your expert Partnership Business Rules consultant. Describe your partnership situation and get clear, direct advice — in both English and Burmese.</p>
+      <div class="welcome-motto">"Without Rules, we all go back to the jungle."</div>
       <div class="welcome-chips">
-        <span class="chip" onclick="sendChip(this)">Explain a concept</span>
-        <span class="chip" onclick="sendChip(this)">Help me code</span>
-        <span class="chip" onclick="sendChip(this)">Summarize text</span>
-        <span class="chip" onclick="sendChip(this)">Write for me</span>
+        <span class="chip" onclick="sendChip(this)">My partner is not contributing</span>
+        <span class="chip" onclick="sendChip(this)">How to handle exit rules?</span>
+        <span class="chip" onclick="sendChip(this)">Share transfer process</span>
+        <span class="chip" onclick="sendChip(this)">Dispute resolution steps</span>
+        <span class="chip" onclick="sendChip(this)">How to split profits fairly?</span>
+        <span class="chip" onclick="sendChip(this)">Capital contribution rules</span>
       </div>
     </div>
   </div>
@@ -457,29 +487,42 @@
   <!-- INPUT -->
   <div class="input-area">
     <div class="input-row">
-      <input
+      <textarea
         id="userInput"
         class="chat-input"
-        type="text"
-        placeholder="Ask me anything…"
+        placeholder="Describe your partnership situation… (Shift+Enter for new line, Enter to send)"
         autocomplete="off"
         spellcheck="false"
-      />
-      <button class="send-btn" onclick="sendMessage()" aria-label="Send message">
+        rows="1"
+      ></textarea>
+      <button class="send-btn" id="sendBtn" onclick="sendMessage()" aria-label="Send message">
         <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
           <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
         </svg>
       </button>
     </div>
-    <div class="input-footer">Partner AI &middot; Powered by AI</div>
+    <div class="input-hint">Enter to send &nbsp;·&nbsp; Shift+Enter for new line &nbsp;·&nbsp; Long messages are supported ✓</div>
+    <div class="input-footer">Sayar Nyan Lin Aung's AI Chat &middot; Powered by PBR Framework</div>
   </div>
 
 </div>
 
 <script>
-  const API_URL = "https://partner-ai-56kh.onrender.com/chat";
-  const chatBox  = document.getElementById("chatBox");
+  const API_URL   = "https://partner-ai-56kh.onrender.com/chat";
+  const chatBox   = document.getElementById("chatBox");
   const userInput = document.getElementById("userInput");
+  const sendBtn   = document.getElementById("sendBtn");
+
+  // Generate a unique session ID for this browser tab
+  const sessionId = "session_" + Math.random().toString(36).slice(2);
+
+  let isStreaming = false;
+
+  // ── Auto-resize textarea as user types ──
+  userInput.addEventListener("input", () => {
+    userInput.style.height = "auto";
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + "px";
+  });
 
   function getTime() {
     return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
@@ -501,9 +544,9 @@
     avatar.alt = type === "user" ? "You" : "AI";
     avatar.src = type === "user"
       ? "https://api.dicebear.com/7.x/adventurer/svg?seed=partner-user"
-      : "https://api.dicebear.com/7.x/bottts/svg?seed=partner-ai";
+      : "https://api.dicebear.com/7.x/bottts/svg?seed=pbr-ai";
 
-    const bubble = document.createElement("div");
+    const bubble  = document.createElement("div");
     bubble.className = "message-bubble";
 
     const msgText = document.createElement("div");
@@ -527,18 +570,19 @@
 
     chatBox.appendChild(row);
     chatBox.scrollTop = chatBox.scrollHeight;
+    return msgText; // return so we can stream into it
   }
 
   function showTyping() {
     removeWelcome();
-
     const row = document.createElement("div");
     row.className = "message-row ai";
+    row.id = "typingRow";
 
     const avatar = document.createElement("img");
     avatar.className = "msg-avatar";
     avatar.alt = "AI";
-    avatar.src = "https://api.dicebear.com/7.x/bottts/svg?seed=partner-ai";
+    avatar.src = "https://api.dicebear.com/7.x/bottts/svg?seed=pbr-ai";
 
     const dots = document.createElement("div");
     dots.className = "typing-dots";
@@ -548,44 +592,101 @@
     row.appendChild(dots);
     chatBox.appendChild(row);
     chatBox.scrollTop = chatBox.scrollHeight;
-
     return row;
   }
 
+  // ── MAIN SEND FUNCTION WITH STREAMING ──
   async function sendMessage() {
     const message = userInput.value.trim();
-    if (!message) return;
+    if (!message || isStreaming) return;
+
+    isStreaming = true;
+    sendBtn.disabled = true;
 
     addMessage(message, "user");
     userInput.value = "";
+    userInput.style.height = "auto";
     userInput.focus();
 
-    const typingEl = showTyping();
+    // Show typing dots while preparing
+    const typingRow = showTyping();
 
     try {
-      const res = await fetch(API_URL, {
+      const response = await fetch(API_URL, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message })
+        body: JSON.stringify({ message, sessionId })
       });
 
-      if (!res.ok) throw new Error("Server error " + res.status);
+      if (!response.ok) throw new Error("Server error " + response.status);
 
-      const data = await res.json();
-      typingEl.remove();
-      addMessage(data.reply || "No response received.", "ai");
+      // Remove typing dots and create AI message bubble for streaming
+      typingRow.remove();
+      const aiTextEl = addMessage("", "ai");
+      aiTextEl.classList.add("streaming"); // shows blinking cursor
+
+      // ── READ THE STREAM ──
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let fullText = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // Process complete SSE lines
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep incomplete line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6).trim();
+
+            if (data === "[DONE]") {
+              // Stream complete
+              aiTextEl.classList.remove("streaming");
+              break;
+            }
+
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                fullText += parsed.text;
+                aiTextEl.textContent = fullText;
+                // Auto scroll as text streams in
+                chatBox.scrollTop = chatBox.scrollHeight;
+              }
+            } catch (e) {
+              // skip malformed chunks
+            }
+          }
+        }
+      }
+
+      // Final cleanup — remove cursor if still there
+      aiTextEl.classList.remove("streaming");
 
     } catch (err) {
-      typingEl.remove();
-      addMessage("Could not reach the server. Please try again.", "ai");
+      typingRow?.remove();
+      addMessage("⚠️ Could not reach the server. Please try again.\n\nServer ကိုချိတ်ဆက်မရပါ။ ထပ်စမ်းကြည့်ပါ။", "ai");
+    } finally {
+      isStreaming = false;
+      sendBtn.disabled = false;
+      userInput.focus();
     }
   }
 
   function sendChip(el) {
     userInput.value = el.textContent;
+    userInput.style.height = "auto";
+    userInput.style.height = Math.min(userInput.scrollHeight, 160) + "px";
     sendMessage();
   }
 
+  // Enter to send, Shift+Enter for new line
   userInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();

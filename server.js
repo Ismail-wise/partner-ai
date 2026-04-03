@@ -14,9 +14,16 @@ const __dirname = path.dirname(__filename);
 
 const app = express();
 
+// Set server-level timeout to 3 minutes for long messages
+app.use((req, res, next) => {
+  req.setTimeout(180000);  // 3 minutes
+  res.setTimeout(180000);
+  next();
+});
+
 app.use(rateLimit({ windowMs: 60 * 1000, max: 50 }));
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "10mb" })); // allow large message bodies
 
 // ==========================
 // OPENAI
@@ -248,8 +255,33 @@ function diagnoseScenario(message) {
 }
 
 // ==========================
-// LOAD PDFs ON START
+// TIMEOUT WRAPPER
 // ==========================
+
+function withTimeout(promise, ms, fallbackMessage) {
+  const timeout = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error("TIMEOUT")), ms)
+  );
+  return Promise.race([promise, timeout]).catch(err => {
+    if (err.message === "TIMEOUT") return fallbackMessage;
+    throw err;
+  });
+}
+
+// ==========================
+// SMART MESSAGE TRUNCATION (for embedding only — NOT for AI response)
+// ==========================
+
+function smartTruncateForEmbedding(text, maxWords = 500) {
+  const words = text.trim().split(/\s+/);
+  if (words.length <= maxWords) return text;
+  // Take first 300 words + last 200 words to capture context from both ends
+  const start = words.slice(0, 300).join(" ");
+  const end = words.slice(-200).join(" ");
+  return `${start} ... ${end}`;
+}
+
+
 
 await loadPDFs();
 await buildVectorDB();
@@ -361,7 +393,7 @@ app.get("/", (req, res) => {
 });
 
 // ==========================
-// CHAT API
+// CHAT API — STREAMING
 // ==========================
 
 app.post("/chat", async (req, res) => {
@@ -370,7 +402,10 @@ app.post("/chat", async (req, res) => {
     const sessionId = req.body.sessionId || "default";
 
     if (!userMessage) {
-      return res.json({ reply: "Please type a message. | စာတစ်ခုခု ရိုက်ထည့်ပါ။" });
+      res.setHeader("Content-Type", "text/event-stream");
+      res.write(`data: ${JSON.stringify({ text: "Please type a message. | စာတစ်ခုခု ရိုက်ထည့်ပါ။" })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      return res.end();
     }
 
     // Initialize session history if new session
@@ -382,8 +417,9 @@ app.post("/chat", async (req, res) => {
     const diagnosedCategories = diagnoseScenario(userMessage);
     console.log("🔍 Diagnosed categories:", diagnosedCategories);
 
-    // Enhanced search query combining user message + diagnosed categories
-    const enhancedQuery = `${userMessage} ${diagnosedCategories.join(" ")}`;
+    // Enhanced search query — truncate only for embedding, full message goes to AI
+    const truncatedForEmbedding = smartTruncateForEmbedding(userMessage);
+    const enhancedQuery = `${truncatedForEmbedding} ${diagnosedCategories.join(" ")}`;
 
     // Search PDF knowledge base with enhanced query
     let relevantChunks = await searchRelevantChunks(enhancedQuery, 8);
@@ -398,15 +434,11 @@ app.post("/chat", async (req, res) => {
     if (needsWebSearch(userMessage)) {
       console.log("🌐 Running web search for:", userMessage.slice(0, 80));
       webContext = await webSearch(userMessage);
-      if (webContext) {
-        console.log("✅ Web search results received");
-      }
+      if (webContext) console.log("✅ Web search results received");
     }
 
     // Add user message to session history
     sessionHistories[sessionId].push({ role: "user", content: userMessage });
-
-    // Keep last MAX_HISTORY messages for strong memory
     sessionHistories[sessionId] = sessionHistories[sessionId].slice(-MAX_HISTORY);
 
     // Build context blocks
@@ -428,38 +460,73 @@ app.post("/chat", async (req, res) => {
       });
     }
 
-    // Build full messages array with memory
     const messages = [
       { role: "system", content: systemPrompt },
       ...contextBlocks,
       ...sessionHistories[sessionId]
     ];
 
-    const response = await openai.chat.completions.create({
-      model: "gpt-4o",
-      messages,
-      temperature: 0.4, // slightly lower for more consistent, precise consulting advice
-      max_tokens: 3000  // increased for bilingual responses
-    });
+    // ==============================
+    // SET UP STREAMING RESPONSE
+    // ==============================
+    res.setHeader("Content-Type", "text/event-stream");
+    res.setHeader("Cache-Control", "no-cache");
+    res.setHeader("Connection", "keep-alive");
+    res.flushHeaders(); // send headers immediately to keep connection alive
 
-    const reply = response.choices?.[0]?.message?.content || "⚠️ No response received.";
+    // Keep connection alive with a heartbeat every 15 seconds
+    const heartbeat = setInterval(() => {
+      res.write(`: heartbeat\n\n`);
+    }, 15000);
 
-    // Save assistant reply to session history
-    sessionHistories[sessionId].push({ role: "assistant", content: reply });
+    let fullReply = "";
 
-    // Clean up old sessions (keep max 100 sessions in memory)
-    const sessionKeys = Object.keys(sessionHistories);
-    if (sessionKeys.length > 100) {
-      delete sessionHistories[sessionKeys[0]];
+    try {
+      // Stream OpenAI response word by word
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        temperature: 0.4,
+        max_tokens: 3000,
+        stream: true  // ← THIS is what enables streaming
+      });
+
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content || "";
+        if (text) {
+          fullReply += text;
+          // Send each chunk to the frontend immediately
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
+
+      // Save full reply to session history after streaming completes
+      sessionHistories[sessionId].push({ role: "assistant", content: fullReply });
+
+      // Clean up old sessions
+      const sessionKeys = Object.keys(sessionHistories);
+      if (sessionKeys.length > 100) delete sessionHistories[sessionKeys[0]];
+
+      // Signal stream is complete
+      res.write(`data: [DONE]\n\n`);
+
+    } catch (streamErr) {
+      console.error("❌ Stream error:", streamErr.message);
+      res.write(`data: ${JSON.stringify({ text: "\n\n⚠️ Stream interrupted. Please try again. | ချိတ်ဆက်မှု ပြတ်တောက်သွားသည်။ ထပ်စမ်းပါ။" })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+    } finally {
+      clearInterval(heartbeat);
+      res.end();
     }
-
-    res.json({ reply, diagnosedCategories });
 
   } catch (err) {
     console.error("❌ ERROR:", err.message);
-    res.json({
-      reply: "⚠️ Server error occurred. Please try again. | Server error ဖြစ်ပါတယ်။ ထပ်စမ်းကြည့်ပါ။"
-    });
+    if (!res.headersSent) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.write(`data: ${JSON.stringify({ text: "⚠️ Server error occurred. Please try again. | Server error ဖြစ်ပါတယ်။" })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      res.end();
+    }
   }
 });
 
