@@ -1,3 +1,4 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
@@ -30,6 +31,13 @@ app.use(express.json({ limit: "10mb" })); // allow large message bodies
 // ==========================
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// ==========================
+// GEMINI
+// ==========================
+
+const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const geminiModel = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 // ==========================
 // WEB SEARCH
@@ -572,23 +580,40 @@ Use the above to add a "Real-World Example:" section to your response. Connect t
     let fullReply = "";
 
     try {
-      // Stream OpenAI response word by word
-      const stream = await openai.chat.completions.create({
-        model: "gpt-4o",
-        messages,
-        temperature: 0.3,
-        max_tokens: 4000,
-        stream: true  // ← THIS is what enables streaming
-      });
+const geminiHistory = messages
+  .filter(m => m.role !== "system")
+  .map(m => ({
+    role: m.role === "assistant" ? "model" : "user",
+    parts: [{ text: m.content }]
+  }));
 
-      for await (const chunk of stream) {
-        const text = chunk.choices[0]?.delta?.content || "";
-        if (text) {
-          fullReply += text;
-          // Send each chunk to the frontend immediately
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
-        }
-      }
+// Combine all system messages into one system instruction
+const systemInstruction = messages
+  .filter(m => m.role === "system")
+  .map(m => m.content)
+  .join("\n\n");
+
+const geminiChat = geminiModel.startChat({
+  history: geminiHistory.slice(0, -1), // all except last message
+  systemInstruction: { parts: [{ text: systemInstruction }] },
+  generationConfig: {
+    temperature: 0.3,
+    maxOutputTokens: 4000,
+  }
+});
+
+// Get the last user message
+const lastUserMessage = geminiHistory[geminiHistory.length - 1]?.parts[0]?.text || "";
+
+const geminiStream = await geminiChat.sendMessageStream(lastUserMessage);
+
+for await (const chunk of geminiStream.stream) {
+  const text = chunk.text();
+  if (text) {
+    fullReply += text;
+    res.write(`data: ${JSON.stringify({ text })}\n\n`);
+  }
+}
 
       // Save full reply to session history after streaming completes
       sessionHistories[sessionId].push({ role: "assistant", content: fullReply });
