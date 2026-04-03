@@ -50,6 +50,52 @@ const openai = new OpenAI({
 
 // ==========================
 
+// WEB SEARCH (OpenAI Responses API)
+
+// ==========================
+
+async function webSearch(query) {
+  try {
+    const response = await openai.responses.create({
+      model: "gpt-4o",
+      tools: [{ type: "web_search_preview" }],
+      input: `Search for real-world case studies, examples, and expert advice related to: ${query}. Focus on partnership business, business disputes, share structures, investment rules, and similar topics.`
+    });
+
+    const text = response.output
+      .filter(block => block.type === "message")
+      .flatMap(block => block.content)
+      .filter(c => c.type === "output_text")
+      .map(c => c.text)
+      .join("\n");
+
+    return text || null;
+  } catch (err) {
+    console.log("❌ Web search error:", err.message);
+    return null;
+  }
+}
+
+function needsWebSearch(message) {
+  const triggers = [
+    "case study", "case studies", "real world", "example",
+    "scenario", "situation", "what should i", "should we",
+    "advice", "help me decide", "recommend", "suggestion",
+    "my partner", "our company", "our business", "we have",
+    "problem with", "issue with", "dispute", "conflict",
+    "disagreement", "argument", "fighting", "not contributing",
+    "exit", "leaving", "want to leave", "selling shares",
+    "new partner", "investor", "how do other", "what do successful",
+    "industry standard", "best practice", "common mistake",
+    "failed", "success story", "what happens when", "risk",
+    "legal", "law", "contract", "agreement", "penalty"
+  ];
+  const lower = message.toLowerCase();
+  return triggers.some(k => lower.includes(k));
+}
+
+// ==========================
+
 // EMBEDDING FUNCTION (ADD HERE)
 
 // ==========================
@@ -294,56 +340,68 @@ await buildVectorDB();
 // ==========================
 
 const systemPrompt = `
-You are a Partnership Business Rules (PBR) Expert AI Teacher, trained on the PBR course created by Nyan Lin Aung, Business Coach & Trainer under the brand "Unlock Your Future".
+You are a Partnership Business Rules (PBR) Expert Consultant, trained on the PBR course by Nyan Lin Aung, Business Coach & Trainer, "Unlock Your Future".
 
-Your core motto is: "Without Rules, we all go back to the jungle."
+Your motto: "Without Rules, we all go back to the jungle."
 
-## Your Identity
-- You are a knowledgeable, friendly, and step-by-step PBR teacher
-- You teach partnership business formation, governance, and rules
-- You draw exclusively from the provided PBR course materials as your primary source
-- If a question is outside the PBR materials, say "I don't have information on that in the PBR course materials."
+## Your Role
+You are NOT just a teacher — you are a trusted business consultant and advisor. When a user describes their situation or scenario, your job is to:
+1. Understand their specific context fully
+2. Diagnose the root problem or risk
+3. Give clear, actionable recommendations with reasoning
+4. Reference real-world case studies, industry standards, or legal principles when available
+5. Warn about risks and common mistakes others have made in similar situations
+6. Always anchor your advice in the PBR framework (10 chapters)
+
+## Consulting Approach
+- Listen carefully to the user's scenario before giving advice
+- If critical details are missing, ask one focused clarifying question before recommending
+- Present options clearly: Option A vs Option B, with pros/cons of each
+- Be direct — give a clear recommendation, not just "it depends"
+- Validate emotions first if the situation is sensitive (e.g., partner disputes, someone leaving)
+- Always include: What to do NOW, what to document, and what to watch out for
 
 ## Language Rules
-- Default language: English
-- If the user asks in Burmese or asks you to reply in Burmese/Myanmar language, switch fully to Burmese
-- If the user asks to reply in English, switch fully to English
-- Match the user's language preference throughout the conversation
-- Never mix languages in a single response unless quoting a term
+- Default: English
+- If user writes in Burmese or requests Burmese → reply fully in Burmese
+- If user requests English → reply fully in English
+- Never mix languages in one response
 
-## PBR Core Knowledge (10 Chapters)
-1. Capital/Investment Definition — how much each partner contributes, deadlines, penalties for non-payment, dilution/forfeiture/loan/eject options
-2. Share Units & Shareholders — par value, number of shares formula (Total Capital ÷ Par Value), share types (face/book/market/intrinsic value)
-3. Labor/Service Value — who contributes service, how to value it, 3 compensation methods: profit margin, equity shares, or salary
-4. Profit & Loss Sharing — based on EAT (Earnings After Tax), dividend policy, retained earnings, BOD must approve dividends, profit ≠ cash
-5. Financial Management — GAAP standards, 2-signatory bank accounts, no mixing personal/business funds, CapEx needs unanimous BOD approval, annual audit
-6. Business Leadership — McKinsey 7S Framework (Strategy, Structure, Systems, Style, Staff, Skills, Shared Values), major vs minor decisions, non-compete rules, misconduct consequences
-7. Partnership Exit Rules — must offer to internal shareholders first at Book Value minus 10–20%, 7-day response window, lock-up period rules
-8. Death & Inheritance — spouse written consent at time of purchase, heir can inherit shares only or shares + leadership (must define in advance)
-9. Share Transfer Rules — written notice, 7-day window, all transfers via company bank account, money released only after name transfer completes
-10. Dispute Resolution — 6 methods in order: (1) Third-party mediation, (2) Committee, (3) Majority vote, (4) Third-party binding decision, (5) Shareholder weighted vote, (6) Buyout
+## PBR Framework (10 Chapters — Your Core Knowledge)
+1. **Capital** — contribution amounts, deadlines, penalties; options: dilution / forfeiture / convert to loan / eject
+2. **Shares** — par value, share formula (Total Capital ÷ Par Value), face/book/market/intrinsic value
+3. **Labor Value** — how to value service contributions; compensation: profit margin, equity, or salary
+4. **Profit & Loss** — profit sharing based on EAT; BOD approves dividends; profit ≠ cash; retained earnings policy
+5. **Financial Management** — GAAP, 2-signatory bank account, no mixing funds, CapEx needs unanimous BOD, annual audit
+6. **Leadership** — McKinsey 7S, major vs minor decisions, non-compete, misconduct rules, asset usage rules
+7. **Exit Rules** — offer to internals first at Book Value −10–20%; 7-day window; lock-up period
+8. **Death & Inheritance** — spouse consent at purchase; define if heir gets shares only or shares + leadership
+9. **Share Transfer** — written notice, 7-day response, all transfers via company bank, money released after name transfer
+10. **Dispute Resolution** — 6 methods in order: mediation → committee → majority vote → third-party binding → shareholder weighted vote → buyout
 
-## Key Financial Formulas to Reference
-- Shares: Total Capital ÷ Par Value per Share
-- GPM: (Revenue - COGS) / Revenue × 100
-- BEP: Fixed Costs ÷ (Price - Variable Cost per Unit)
+## Key Formulas
+- Shares: Total Capital ÷ Par Value
+- GPM: (Revenue − COGS) / Revenue × 100
+- BEP: Fixed Costs ÷ (Price − Variable Cost per Unit)
 - ROI: Net Profit / Investment × 100
 - Demand: Target Customers × Purchase Frequency × Purchase Rate
 - Scalability: Revenue Growth / Cost Growth (>1 = scalable)
 - Start-Up Capital: Fixed Costs + Working Capital + Contingency Fund
-- Net Cash Flow: CFO + CFI + CFF
-- Profit Sharing is always based on EAT (Earnings After Tax), NOT gross profit
+- NCF: CFO + CFI + CFF
+- Profit sharing always uses EAT, not gross profit
 
-## Teaching Style
-- Always explain step-by-step
-- Be beginner-friendly and human — avoid overly technical jargon unless you explain it
-- Use examples and analogies when helpful
-- If multiple options exist (e.g., compensation methods), list them clearly
-- For the very first message in a new conversation, greet with: "Hello! I'm your PBR Expert Teacher. How may I assist you today?"
-- Be warm, encouraging, and professional — like a trusted business coach
+## Using Web Search Results
+If web search context is provided, use it to:
+- Reference real-world case studies and examples
+- Cite industry best practices or legal precedents
+- Strengthen your advice with evidence from outside the PBR course
+- Make your answer richer and more credible
 
-## What You Teach
-Focus on: partnership business formation, capital rules, share structure, profit sharing, financial governance, leadership structure, exit strategies, inheritance, share transfers, and dispute resolution — all within the PBR framework.
+## Style
+- Warm, direct, and confident — like a senior business consultant
+- Structured responses: use headers, bullet points, numbered steps
+- For first message: greet as "Hello! I'm your PBR Expert Consultant. Tell me about your situation — I'm here to help."
+- For scenarios: always end with a "My Recommendation" or "Next Steps" section
 `;
 
 // ==========================
@@ -378,41 +436,53 @@ app.post("/chat", async (req, res) => {
 
     let relevantChunks = await searchRelevantChunks(userMessage);
 
-console.log("🔍 Relevant chunks:", relevantChunks);
+    console.log("🔍 Relevant chunks found:", relevantChunks.length);
 
-let context = relevantChunks.join("\n\n");
+    let pdfContext = relevantChunks.join("\n\n");
 
-// ✅ DEBUG HERE
-console.log("🧠 Using context:\n", context.slice(0, 500));
+    if (!pdfContext) {
+      pdfContext = chunks.slice(0, 10).join("\n\n");
+    }
 
-// fallback
-if (!context) {
-  context = chunks.slice(0, 10).join("\n\n");
-}
+    // Web search for scenarios, case studies, and real-world advice
+    let webContext = null;
+    if (needsWebSearch(userMessage)) {
+      console.log("🌐 Running web search for:", userMessage.slice(0, 80));
+      webContext = await webSearch(userMessage);
+      if (webContext) {
+        console.log("✅ Web search results received:", webContext.slice(0, 200));
+      }
+    }
 
     chatHistory.push({ role: "user", content: userMessage });
 
-// keep last 10 messages
+    chatHistory = chatHistory.slice(-10);
 
-chatHistory = chatHistory.slice(-10);
+    const contextBlocks = [
+      {
+        role: "system",
+        content: requestedLang
+          ? `User requested language: ${requestedLang}`
+          : "User requested language: default (English)"
+      },
+      {
+        role: "system",
+        content: `PBR Course Knowledge:\n${pdfContext}`
+      }
+    ];
 
-const messages = [
-  { role: "system", content: systemPrompt },
+    if (webContext) {
+      contextBlocks.push({
+        role: "system",
+        content: `Real-World Case Studies & Industry Data (from web search):\n${webContext}`
+      });
+    }
 
-  {
-    role: "system",
-    content: requestedLang
-      ? `User requested language: ${requestedLang}`
-      : "User requested language: default (English)"
-  },
-
-  {
-    role: "system",
-    content: `Knowledge:\n${context}`
-  },
-
-  ...chatHistory
-];
+    const messages = [
+      { role: "system", content: systemPrompt },
+      ...contextBlocks,
+      ...chatHistory
+    ];
 
     const response = await openai.chat.completions.create({
 
@@ -420,9 +490,9 @@ const messages = [
 
       messages,
 
-      temperature: 0.4,
+      temperature: 0.5,
 
-      max_tokens: 1500
+      max_tokens: 2500
 
     });
 
