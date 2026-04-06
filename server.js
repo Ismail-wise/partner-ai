@@ -1,11 +1,10 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from "url";
+import { fileURLToPath, pathToFileURL } from "url";
 import dotenv from "dotenv";
 dotenv.config();
 import express from "express";
-import OpenAI from "openai";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
@@ -13,31 +12,36 @@ import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+const standardFontDataUrl = pathToFileURL(
+  path.join(__dirname, "node_modules", "pdfjs-dist", "standard_fonts")
+).href + "/";
+
 const app = express();
 
-// Set server-level timeout to 3 minutes for long messages
 app.use((req, res, next) => {
-  req.setTimeout(180000);  // 3 minutes
+  req.setTimeout(180000);
   res.setTimeout(180000);
   next();
 });
 
 app.use(rateLimit({ windowMs: 60 * 1000, max: 50 }));
 app.use(cors());
-app.use(express.json({ limit: "10mb" })); // allow large message bodies
+app.use(express.json({ limit: "10mb" }));
 
 // ==========================
-// OPENAI
+// OPENAI CLIENT
 // ==========================
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
 // ==========================
-// GEMINI
+// MEMORY STORAGE
 // ==========================
 
-const gemini = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const geminiModel = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
+let chunks = [];
+let vectorDB = [];
+const sessionHistories = {};
+const MAX_HISTORY = 20;
 
 // ==========================
 // WEB SEARCH
@@ -45,10 +49,12 @@ const geminiModel = gemini.getGenerativeModel({ model: "gemini-2.0-flash" });
 
 async function webSearch(query) {
   try {
-    const response = await openai.responses.create({
-      model: "gpt-4o",
-      tools: [{ type: "web_search_preview" }],
-      input: `Search for real-world case studies, specific data, statistics, and expert business advice about: "${query}".
+    const result = await openai.chat.completions.create({
+      model: "gpt-4o-search-preview",
+      messages: [
+        {
+          role: "user",
+          content: `Search for real-world case studies, specific data, statistics, and expert business advice about: "${query}".
 Find information about:
 - Actual partnership business disputes and how they were resolved
 - Real examples of share structures, buyout clauses, and equity arrangements
@@ -57,16 +63,11 @@ Find information about:
 - Myanmar or Southeast Asian SME/business partnership examples if available
 - Expert opinions and specific data points (percentages, timelines, financial figures)
 Return concrete facts, named examples, and actionable insights — not generic advice.`
+        }
+      ]
     });
 
-    const text = response.output
-      .filter(block => block.type === "message")
-      .flatMap(block => block.content)
-      .filter(c => c.type === "output_text")
-      .map(c => c.text)
-      .join("\n");
-
-    return text || null;
+    return result.choices[0]?.message?.content || null;
   } catch (err) {
     console.log("❌ Web search error:", err.message);
     return null;
@@ -75,33 +76,25 @@ Return concrete facts, named examples, and actionable insights — not generic a
 
 function needsWebSearch(message) {
   const triggers = [
-    // Explicit requests
     "case study", "case studies", "real world", "real-world", "example",
     "scenario", "real example", "give me an example", "show me",
-    // User situations
     "what should i", "should we", "what do i do",
     "advice", "help me decide", "recommend", "suggestion",
     "my partner", "our company", "our business", "we have",
     "i have a", "i am a partner", "we are partners",
-    // Problems
     "problem with", "issue with", "dispute", "conflict",
     "disagreement", "argument", "fighting", "not contributing",
     "not paying", "refusing", "stopped working", "lazy partner",
-    // Business actions
     "exit", "leaving", "want to leave", "selling shares", "buy out",
     "new partner", "investor", "adding partner", "removing partner",
-    // Research
     "how do other", "what do successful", "industry standard",
     "best practice", "common mistake", "other companies",
     "how much", "average", "typical", "normal rate", "market rate",
-    // Legal & risk
     "failed", "success story", "what happens when", "risk",
     "legal", "law", "contract", "agreement", "penalty",
     "protect myself", "protect my", "safeguard",
-    // Financial specifics
     "valuation", "how to value", "fair price", "calculate",
     "percentage", "how many shares", "par value",
-    // Myanmar business
     "myanmar", "burma", "local business", "sme"
   ];
   const lower = message.toLowerCase();
@@ -115,31 +108,20 @@ function needsWebSearch(message) {
 async function getEmbedding(text) {
   try {
     if (!text || typeof text !== "string") return null;
-    const cleanText = text.replace(/\s+/g, " ").slice(0, 2000);
+    const cleanText = text.replace(/\s+/g, " ").slice(0, 8000);
     if (!cleanText) return null;
-    const res = await openai.embeddings.create({
+
+    const response = await openai.embeddings.create({
       model: "text-embedding-3-small",
       input: cleanText
     });
-    return res.data[0].embedding;
+
+    return response.data[0]?.embedding || null;
   } catch (err) {
     console.log("❌ Embedding error:", err.message);
     return null;
   }
 }
-
-// ==========================
-// MEMORY STORAGE
-// ==========================
-
-let chunks = [];
-let vectorDB = [];
-
-// Per-session chat history stored by sessionId
-// Format: { sessionId: [ {role, content}, ... ] }
-const sessionHistories = {};
-
-const MAX_HISTORY = 20; // keep last 20 messages per session for strong memory
 
 // ==========================
 // TEXT SPLITTER
@@ -181,7 +163,7 @@ async function loadPDFs() {
 
       try {
         const data = new Uint8Array(fs.readFileSync(pdfPath));
-        const pdf = await pdfjsLib.getDocument({ data }).promise;
+        const pdf = await pdfjsLib.getDocument({ data, standardFontDataUrl }).promise;
 
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
@@ -209,14 +191,38 @@ async function loadPDFs() {
   }
 }
 
+const VECTOR_CACHE_PATH = path.join(__dirname, "vectordb_cache.json");
+
 async function buildVectorDB() {
+  if (fs.existsSync(VECTOR_CACHE_PATH)) {
+    try {
+      const cached = JSON.parse(fs.readFileSync(VECTOR_CACHE_PATH, "utf-8"));
+      if (cached.chunkCount === chunks.length && Array.isArray(cached.vectorDB) && cached.vectorDB.length > 0) {
+        vectorDB = cached.vectorDB;
+        console.log(`✅ Loaded vector DB from cache: ${vectorDB.length} entries`);
+        return;
+      }
+      console.log("⚠️ Cache mismatch — rebuilding vector DB...");
+    } catch (e) {
+      console.log("⚠️ Cache read failed — rebuilding:", e.message);
+    }
+  }
+
   console.log("🔄 Building vector DB...");
   for (const chunk of chunks) {
     const embedding = await getEmbedding(chunk);
     if (!embedding) continue;
     vectorDB.push({ text: chunk, embedding });
+    await new Promise(resolve => setTimeout(resolve, 100));
   }
   console.log("✅ Vector DB ready:", vectorDB.length);
+
+  try {
+    fs.writeFileSync(VECTOR_CACHE_PATH, JSON.stringify({ chunkCount: chunks.length, vectorDB }));
+    console.log("💾 Vector DB cached to disk");
+  } catch (e) {
+    console.log("⚠️ Could not save vector DB cache:", e.message);
+  }
 }
 
 // ==========================
@@ -241,11 +247,9 @@ async function searchRelevantChunks(query, topK = 12) {
     }))
     .sort((a, b) => b.score - a.score);
 
-  // Try to get results above relevance threshold first
   const highRelevance = scored.filter(i => i.score > 0.25).slice(0, topK);
   if (highRelevance.length >= 4) return highRelevance.map(i => i.text);
 
-  // Fall back to top results if not enough high-relevance chunks
   return scored.slice(0, Math.max(topK, 6)).map(i => i.text);
 }
 
@@ -254,15 +258,12 @@ async function searchRelevantChunks(query, topK = 12) {
 // ==========================
 
 function detectLanguage(text) {
-  // Detect if message contains Burmese script
   const burmeseRegex = /[\u1000-\u109F\uAA60-\uAA7F]/;
   if (burmeseRegex.test(text)) return "burmese";
-
   const lower = text.toLowerCase();
   if (lower.includes("burmese") || lower.includes("myanmar") || lower.includes("မြန်မာ")) return "burmese";
   if (lower.includes("english")) return "english";
-
-  return "english"; // default
+  return "english";
 }
 
 // ==========================
@@ -271,7 +272,6 @@ function detectLanguage(text) {
 
 function diagnoseScenario(message) {
   const lower = message.toLowerCase();
-
   const categories = {
     capital: ["capital", "contribution", "invest", "money", "fund", "paid", "deposit", "deadline", "late"],
     shares: ["share", "equity", "ownership", "percent", "stake", "dilute", "transfer"],
@@ -287,42 +287,26 @@ function diagnoseScenario(message) {
 
   const matched = [];
   for (const [category, keywords] of Object.entries(categories)) {
-    if (keywords.some(k => lower.includes(k))) {
-      matched.push(category);
-    }
+    if (keywords.some(k => lower.includes(k))) matched.push(category);
   }
-
   return matched.length > 0 ? matched : ["general"];
 }
 
 // ==========================
-// TIMEOUT WRAPPER
-// ==========================
-
-function withTimeout(promise, ms, fallbackMessage) {
-  const timeout = new Promise((_, reject) =>
-    setTimeout(() => reject(new Error("TIMEOUT")), ms)
-  );
-  return Promise.race([promise, timeout]).catch(err => {
-    if (err.message === "TIMEOUT") return fallbackMessage;
-    throw err;
-  });
-}
-
-// ==========================
-// SMART MESSAGE TRUNCATION (for embedding only — NOT for AI response)
+// SMART MESSAGE TRUNCATION
 // ==========================
 
 function smartTruncateForEmbedding(text, maxWords = 500) {
   const words = text.trim().split(/\s+/);
   if (words.length <= maxWords) return text;
-  // Take first 300 words + last 200 words to capture context from both ends
   const start = words.slice(0, 300).join(" ");
   const end = words.slice(-200).join(" ");
   return `${start} ... ${end}`;
 }
 
-
+// ==========================
+// STARTUP
+// ==========================
 
 await loadPDFs();
 await buildVectorDB();
@@ -498,20 +482,16 @@ app.post("/chat", async (req, res) => {
       return res.end();
     }
 
-    // Initialize session history if new session
     if (!sessionHistories[sessionId]) {
       sessionHistories[sessionId] = [];
     }
 
-    // Diagnose scenario categories for better PDF search
     const diagnosedCategories = diagnoseScenario(userMessage);
     console.log("🔍 Diagnosed categories:", diagnosedCategories);
 
-    // Enhanced search query — truncate only for embedding, full message goes to AI
     const truncatedForEmbedding = smartTruncateForEmbedding(userMessage);
     const enhancedQuery = `${truncatedForEmbedding} ${diagnosedCategories.join(" ")}`;
 
-    // Search PDF knowledge base with enhanced query
     let relevantChunks = await searchRelevantChunks(enhancedQuery, 8);
     let pdfContext = relevantChunks.join("\n\n");
 
@@ -519,7 +499,6 @@ app.post("/chat", async (req, res) => {
       pdfContext = chunks.slice(0, 12).join("\n\n");
     }
 
-    // Web search for real-world case studies when needed
     let webContext = null;
     if (needsWebSearch(userMessage)) {
       console.log("🌐 Running web search for:", userMessage.slice(0, 80));
@@ -527,12 +506,15 @@ app.post("/chat", async (req, res) => {
       if (webContext) console.log("✅ Web search results received");
     }
 
-    // Add user message to session history
     sessionHistories[sessionId].push({ role: "user", content: userMessage });
-    sessionHistories[sessionId] = sessionHistories[sessionId].slice(-MAX_HISTORY);
+    let hist = sessionHistories[sessionId].slice(-MAX_HISTORY);
+    sessionHistories[sessionId] = hist;
 
-    // Build context blocks
-    const contextBlocks = [
+    const contextMessages = [
+      {
+        role: "system",
+        content: systemPrompt
+      },
       {
         role: "system",
         content: `DIAGNOSED PBR CHAPTERS FOR THIS QUERY: ${diagnosedCategories.join(", ").toUpperCase()}
@@ -549,7 +531,7 @@ Pull specific language, rules, and details from the above. Do not give generic s
     ];
 
     if (webContext) {
-      contextBlocks.push({
+      contextMessages.push({
         role: "system",
         content: `=== REAL-WORLD DATA & CASE STUDIES (from web search — use to enrich your answer) ===
 ${webContext}
@@ -559,20 +541,15 @@ Use the above to add a "Real-World Example:" section to your response. Connect t
     }
 
     const messages = [
-      { role: "system", content: systemPrompt },
-      ...contextBlocks,
+      ...contextMessages,
       ...sessionHistories[sessionId]
     ];
 
-    // ==============================
-    // SET UP STREAMING RESPONSE
-    // ==============================
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
-    res.flushHeaders(); // send headers immediately to keep connection alive
+    res.flushHeaders();
 
-    // Keep connection alive with a heartbeat every 15 seconds
     const heartbeat = setInterval(() => {
       res.write(`: heartbeat\n\n`);
     }, 15000);
@@ -580,54 +557,32 @@ Use the above to add a "Real-World Example:" section to your response. Connect t
     let fullReply = "";
 
     try {
-const geminiHistory = messages
-  .filter(m => m.role !== "system")
-  .map(m => ({
-    role: m.role === "assistant" ? "model" : "user",
-    parts: [{ text: m.content }]
-  }));
+      const stream = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages,
+        stream: true,
+        temperature: 0.3,
+        max_tokens: 4000
+      });
 
-// Combine all system messages into one system instruction
-const systemInstruction = messages
-  .filter(m => m.role === "system")
-  .map(m => m.content)
-  .join("\n\n");
+      for await (const chunk of stream) {
+        const text = chunk.choices[0]?.delta?.content || "";
+        if (text) {
+          fullReply += text;
+          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        }
+      }
 
-const geminiChat = geminiModel.startChat({
-  history: geminiHistory.slice(0, -1), // all except last message
-  systemInstruction: { parts: [{ text: systemInstruction }] },
-  generationConfig: {
-    temperature: 0.3,
-    maxOutputTokens: 4000,
-  }
-});
-
-// Get the last user message
-const lastUserMessage = geminiHistory[geminiHistory.length - 1]?.parts[0]?.text || "";
-
-const geminiStream = await geminiChat.sendMessageStream(lastUserMessage);
-
-for await (const chunk of geminiStream.stream) {
-  const text = chunk.text();
-  if (text) {
-    fullReply += text;
-    res.write(`data: ${JSON.stringify({ text })}\n\n`);
-  }
-}
-
-      // Save full reply to session history after streaming completes
       sessionHistories[sessionId].push({ role: "assistant", content: fullReply });
 
-      // Clean up old sessions
       const sessionKeys = Object.keys(sessionHistories);
       if (sessionKeys.length > 100) delete sessionHistories[sessionKeys[0]];
 
-      // Signal stream is complete
       res.write(`data: [DONE]\n\n`);
 
     } catch (streamErr) {
       console.error("❌ Stream error:", streamErr.message);
-      res.write(`data: ${JSON.stringify({ text: "\n\n⚠️ Stream interrupted. Please try again. | ချိတ်ဆက်မှု ပြတ်တောက်သွားသည်။ ထပ်စမ်းပါ။" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ text: "\n\nStream interrupted. Please try again. | ချိတ်ဆက်မှု ပြတ်တောက်သွားသည်။ ထပ်စမ်းပါ။" })}\n\n`);
       res.write(`data: [DONE]\n\n`);
     } finally {
       clearInterval(heartbeat);
@@ -638,7 +593,7 @@ for await (const chunk of geminiStream.stream) {
     console.error("❌ ERROR:", err.message);
     if (!res.headersSent) {
       res.setHeader("Content-Type", "text/event-stream");
-      res.write(`data: ${JSON.stringify({ text: "⚠️ Server error occurred. Please try again. | Server error ဖြစ်ပါတယ်။" })}\n\n`);
+      res.write(`data: ${JSON.stringify({ text: "Server error occurred. Please try again. | Server error ဖြစ်ပါတယ်။" })}\n\n`);
       res.write(`data: [DONE]\n\n`);
       res.end();
     }
@@ -646,7 +601,7 @@ for await (const chunk of geminiStream.stream) {
 });
 
 // ==========================
-// CLEAR SESSION (optional endpoint to reset memory)
+// CLEAR SESSION
 // ==========================
 
 app.post("/clear-session", (req, res) => {
