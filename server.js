@@ -56,51 +56,62 @@ async function webSearch(query) {
       messages: [
         {
           role: "user",
-          content: `Search for real-world case studies, specific data, statistics, and expert business advice about: "${query}".
-Find information about:
-- Actual partnership business disputes and how they were resolved
-- Real examples of share structures, buyout clauses, and equity arrangements
-- Business partnership laws, legal precedents, and best practices
-- Profit-sharing models and financial structures used by real companies
-- Myanmar or Southeast Asian SME/business partnership examples if available
-- Expert opinions and specific data points (percentages, timelines, financial figures)
-Return concrete facts, named examples, and actionable insights — not generic advice.`
+          content: `Search for real-world case studies, specific data, and named examples about: "${query}".
+Focus on:
+- Actual partnership business disputes and how they were resolved (named cases or companies)
+- Real share structures, buyout clauses, equity arrangements used by real companies
+- Myanmar or Southeast Asian SME partnership examples if available
+- Legal precedents, court cases, expert opinions with specific data (percentages, timelines, figures)
+Return concrete facts and named examples only. No generic advice.`
         }
       ]
     });
 
-    return result.choices[0]?.message?.content || null;
+    let content = result.choices[0]?.message?.content || null;
+    // Truncate to avoid token overload
+    if (content && content.length > 5000) content = content.slice(0, 5000) + "\n[Truncated]";
+    return content;
   } catch (err) {
     console.log("❌ Web search error:", err.message);
     return null;
   }
 }
 
+// Only triggers on genuine requests for external real-world data
 function needsWebSearch(message) {
   const triggers = [
-    "case study", "case studies", "real world", "real-world", "example",
-    "scenario", "real example", "give me an example", "show me",
-    "what should i", "should we", "what do i do",
-    "advice", "help me decide", "recommend", "suggestion",
-    "my partner", "our company", "our business", "we have",
-    "i have a", "i am a partner", "we are partners",
-    "problem with", "issue with", "dispute", "conflict",
-    "disagreement", "argument", "fighting", "not contributing",
-    "not paying", "refusing", "stopped working", "lazy partner",
-    "exit", "leaving", "want to leave", "selling shares", "buy out",
-    "new partner", "investor", "adding partner", "removing partner",
-    "how do other", "what do successful", "industry standard",
-    "best practice", "common mistake", "other companies",
-    "how much", "average", "typical", "normal rate", "market rate",
-    "failed", "success story", "what happens when", "risk",
-    "legal", "law", "contract", "agreement", "penalty",
-    "protect myself", "protect my", "safeguard",
-    "valuation", "how to value", "fair price", "calculate",
-    "percentage", "how many shares", "par value",
-    "myanmar", "burma", "local business", "sme"
+    "case study", "case studies", "real example", "real-world example",
+    "what do successful companies", "how do other companies",
+    "industry standard", "market rate", "average percentage",
+    "actual lawsuit", "court case", "legal precedent",
+    "statistics show", "data shows", "research says",
+    "famous company", "well known example", "real company"
   ];
   const lower = message.toLowerCase();
   return triggers.some(k => lower.includes(k));
+}
+
+// ==========================
+// QUERY EXPANSION
+// ==========================
+
+const CATEGORY_EXPANSION = {
+  capital: "capital contribution deadline late payment penalty dilution forfeiture convert loan eject partner Chapter 1",
+  shares: "par value share formula total capital equity ownership book value face value market value intrinsic value Chapter 2",
+  labor: "labor value service contribution sweat equity salary profit margin compensation Chapter 3",
+  profit: "profit sharing EAT earnings after tax dividend BOD board of directors retained earnings payout Chapter 4",
+  financial: "GAAP bank account two signatory audit CapEx personal funds mixing financial management Chapter 5",
+  leadership: "McKinsey 7S framework major decision minor decision non-compete misconduct personal asset Chapter 6",
+  exit: "exit rules book value discount 10 20 percent 7 day acceptance window lock-up period Chapter 7",
+  death: "death inheritance heir spouse consent shares leadership role Chapter 8",
+  transfer: "share transfer written notice 7 day response payment company bank account Chapter 9",
+  dispute: "dispute resolution mediation internal committee majority vote third party arbitration shareholder forced buyout Chapter 10",
+  general: "partnership business rules PBR Myanmar SME agreement Nyan Lin Aung Unlock Your Future"
+};
+
+function buildExpandedQuery(message, categories) {
+  const expansions = categories.map(c => CATEGORY_EXPANSION[c] || "").join(" ");
+  return `${message} ${expansions}`;
 }
 
 // ==========================
@@ -206,32 +217,46 @@ async function loadPDFs() {
 
 const VECTOR_CACHE_PATH = path.join(__dirname, "vectordb_cache.json");
 
+// Stable fingerprint of docs folder: filename + size for each PDF (sorted)
+function computeDocFingerprint() {
+  const docsDir = path.join(__dirname, "docs");
+  if (!fs.existsSync(docsDir)) return "empty";
+  return fs.readdirSync(docsDir)
+    .filter(f => f.toLowerCase().endsWith(".pdf"))
+    .sort()
+    .map(f => `${f}:${fs.statSync(path.join(docsDir, f)).size}`)
+    .join("|");
+}
+
 async function buildVectorDB() {
+  const currentKey = computeDocFingerprint();
+
   if (fs.existsSync(VECTOR_CACHE_PATH)) {
     try {
       const cached = JSON.parse(fs.readFileSync(VECTOR_CACHE_PATH, "utf-8"));
-      if (cached.chunkCount === chunks.length && Array.isArray(cached.vectorDB) && cached.vectorDB.length > 0) {
+      if (cached.cacheKey === currentKey && Array.isArray(cached.vectorDB) && cached.vectorDB.length > 0) {
         vectorDB = cached.vectorDB;
         console.log(`✅ Loaded vector DB from cache: ${vectorDB.length} entries`);
         return;
       }
-      console.log("⚠️ Cache mismatch — rebuilding vector DB...");
+      console.log("⚠️ Cache fingerprint mismatch — rebuilding vector DB...");
     } catch (e) {
       console.log("⚠️ Cache read failed — rebuilding:", e.message);
     }
   }
 
-  console.log("🔄 Building vector DB...");
+  console.log("🔄 Building vector DB from scratch...");
+  vectorDB = [];
   for (const chunk of chunks) {
     const embedding = await getEmbedding(chunk.text);
     if (!embedding) continue;
     vectorDB.push({ text: chunk.text, source: chunk.source, embedding });
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 80));
   }
-  console.log("✅ Vector DB ready:", vectorDB.length);
+  console.log("✅ Vector DB ready:", vectorDB.length, "entries from", new Set(chunks.map(c => c.source)).size, "documents");
 
   try {
-    fs.writeFileSync(VECTOR_CACHE_PATH, JSON.stringify({ chunkCount: chunks.length, vectorDB }));
+    fs.writeFileSync(VECTOR_CACHE_PATH, JSON.stringify({ cacheKey: currentKey, chunkCount: chunks.length, vectorDB }));
     console.log("💾 Vector DB cached to disk");
   } catch (e) {
     console.log("⚠️ Could not save vector DB cache:", e.message);
@@ -249,25 +274,53 @@ function cosineSimilarity(a, b) {
   return dot / (normA * normB);
 }
 
-async function searchRelevantChunks(query, topK = 15) {
+// Maximal Marginal Relevance: balances relevance vs. diversity to avoid duplicate chunks
+function applyMMR(candidates, topK, lambda = 0.6) {
+  if (candidates.length <= topK) return candidates;
+  const selected = [candidates[0]];
+  const remaining = candidates.slice(1);
+  while (selected.length < topK && remaining.length > 0) {
+    let bestIdx = 0, bestScore = -Infinity;
+    for (let i = 0; i < remaining.length; i++) {
+      const relevance = remaining[i].score;
+      const maxSim = Math.max(...selected.map(s =>
+        cosineSimilarity(remaining[i].embedding, s.embedding)
+      ));
+      const mmrScore = lambda * relevance - (1 - lambda) * maxSim;
+      if (mmrScore > bestScore) { bestScore = mmrScore; bestIdx = i; }
+    }
+    selected.push(remaining.splice(bestIdx, 1)[0]);
+  }
+  return selected;
+}
+
+async function searchRelevantChunks(query, topK = 16) {
   // Returns: { text, source, score }[]
-  if (vectorDB.length === 0) return chunks.slice(0, 15);
+  if (vectorDB.length === 0) return chunks.slice(0, topK);
 
   const queryEmbedding = await getEmbedding(query);
-  if (!queryEmbedding) return chunks.slice(0, 15);
+  if (!queryEmbedding) return chunks.slice(0, topK);
 
+  // Score all, keep embedding for MMR diversity calculation
   const scored = vectorDB
     .map(item => ({
       text: item.text,
       source: item.source || "Document",
-      score: cosineSimilarity(queryEmbedding, item.embedding)
+      score: cosineSimilarity(queryEmbedding, item.embedding),
+      embedding: item.embedding   // kept for MMR, stripped before returning
     }))
     .sort((a, b) => b.score - a.score);
 
-  const highRelevance = scored.filter(i => i.score > 0.18).slice(0, topK);
-  if (highRelevance.length >= 3) return highRelevance;
+  // Log top scores for debugging
+  console.log("📊 Top 5 scores:", scored.slice(0, 5).map(s => `${s.source}: ${s.score.toFixed(3)}`).join(", "));
 
-  return scored.slice(0, Math.max(topK, 8));
+  // Candidate pool = 2x topK, then apply MMR for diversity
+  const candidatePool = scored.filter(i => i.score > 0.15).slice(0, topK * 2);
+  const pool = candidatePool.length >= 3 ? candidatePool : scored.slice(0, topK * 2);
+  const diverse = applyMMR(pool, topK, 0.6);
+
+  // Strip embeddings before returning (not needed downstream)
+  return diverse.map(({ text, source, score }) => ({ text, source, score }));
 }
 
 // ==========================
@@ -383,8 +436,8 @@ Talk like a real person. Here is how:
 - Explain WHY each rule exists. The reasoning matters as much as the rule.
 - State specific thresholds: 7-day windows, 10-20% discounts, unanimous BOD votes, etc.
 
-== CONSULTING STRUCTURE ==
-When the user has a real situation to discuss, follow this flow:
+== CONSULTING FLOW (ADAPT AS NEEDED) ==
+Do not force all steps into a simple factual question. Short direct questions get focused answers. For real scenarios, follow this flow:
 
 1. ACKNOWLEDGE — briefly recognize what they are dealing with (1-2 sentences, genuine not generic)
 
@@ -419,12 +472,21 @@ Next Steps:
 3. ...
 
 == DOCUMENT KNOWLEDGE USAGE ==
-You will be given relevant excerpts from the PBR course PDFs. These are your primary source. Always:
-- Pull specific language, clauses, and conditions from the excerpts — not from memory
-- If the excerpt contains a relevant rule, quote it or closely paraphrase it
-- If numbers or formulas are in the excerpt, use them in your calculations
-- Reference which chapter the rule comes from
-Do NOT give vague summaries when specific text is available to you.
+You will be given relevant excerpts from the PBR course PDFs. These are your ground truth. Always:
+- Base your answer on what the document text actually says
+- Quote or closely paraphrase the excerpt when a relevant rule is present
+- Cite inline after using a rule: (Source: Content - 7) — use the exact document name shown in the excerpt header
+- If numbers, formulas, or thresholds appear in the excerpt, use them exactly
+- If the excerpts do NOT cover the specific question, say so clearly: "The current excerpts don't have the exact rule on this." Then use your PBR framework backup, clearly labeled: [PBR Framework knowledge]
+Do NOT give vague summaries when specific text is available. Never say "according to the documents" without naming the document.
+
+== MYANMAR BUSINESS CONTEXT ==
+You understand the Myanmar business reality:
+- Many partnerships start on trust and verbal agreements between family or friends
+- Business disputes in Myanmar are often avoided to save face — people suffer in silence until it's too late
+- The formal company registry (MyCO) and Companies Law 2017 exist but enforcement is weak for SMEs
+- Most Yangon and Mandalay SME owners have not written a proper partnership agreement
+- When you apply PBR rules, acknowledge this reality: "I know many Myanmar partnerships skip this step — but here is exactly why that leads to problems later."
 
 == PBR FRAMEWORK — 10 CHAPTERS ==
 1. Capital (Ch.1) — contribution amounts, deadlines, late payment penalties; 4 options: dilution / forfeiture / convert to loan / eject partner
@@ -486,32 +548,28 @@ app.post("/chat", async (req, res) => {
     console.log("🔍 Diagnosed categories:", diagnosedCategories);
 
     const truncatedForEmbedding = smartTruncateForEmbedding(userMessage);
-    const enhancedQuery = `${truncatedForEmbedding} ${diagnosedCategories.join(" ")}`;
+    const enhancedQuery = buildExpandedQuery(truncatedForEmbedding, diagnosedCategories);
 
-    // Retrieve source-tagged chunks
-    let relevantChunks = await searchRelevantChunks(enhancedQuery, 12);
+    // Retrieve diverse, source-tagged chunks via MMR
+    let relevantChunks = await searchRelevantChunks(enhancedQuery, 16);
 
-    // If retrieval returned raw chunk objects (fallback path returns plain objects too)
-    // Build formatted context with source labels for each excerpt
+    // Build source-labelled context with relevance scores
     let pdfContext;
     if (relevantChunks.length > 0 && typeof relevantChunks[0] === "object" && relevantChunks[0].text) {
-      // Deduplicate by source to show which docs contributed
-      const sourcesSeen = new Set();
-      relevantChunks.forEach(c => sourcesSeen.add(c.source));
+      const sourcesSeen = new Set(relevantChunks.map(c => c.source));
       console.log("📚 Sources used:", [...sourcesSeen].join(", "));
 
-      pdfContext = relevantChunks
-        .map(c => `[FROM DOCUMENT: "${c.source}"]\n${c.text}`)
-        .join("\n\n────────\n\n");
+      pdfContext = `DOCUMENTS CONSULTED: ${[...sourcesSeen].join(", ")}\n\n` +
+        relevantChunks
+          .map((c, i) => `[EXCERPT ${i + 1} — FROM: "${c.source}" — ${c.score != null ? (c.score * 100).toFixed(0) + "% match" : ""}]\n${c.text}`)
+          .join("\n\n────────\n\n");
     } else {
-      // Absolute fallback — raw string chunks
       pdfContext = relevantChunks.join("\n\n");
     }
 
     if (!pdfContext || pdfContext.trim().length < 50) {
-      // Fall back to first chunks across all docs if retrieval fails entirely
-      pdfContext = chunks.slice(0, 12)
-        .map(c => `[FROM DOCUMENT: "${c.source || "Document"}"]\n${c.text || c}`)
+      pdfContext = chunks.slice(0, 16)
+        .map((c, i) => `[EXCERPT ${i + 1} — FROM: "${c.source || "Document"}"]\n${c.text || c}`)
         .join("\n\n────────\n\n");
     }
 
@@ -578,7 +636,7 @@ Use this to add a "Real-World Example:" section. Connect back to the document ru
         model: "gpt-4o",
         messages,
         stream: true,
-        temperature: 0.65,
+        temperature: 0.55,
         max_tokens: 5000
       });
 
