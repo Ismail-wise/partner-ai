@@ -285,6 +285,7 @@
     align-items: center;
     justify-content: center;
     font-size: 36px;
+    position: relative;
     box-shadow:
       0 0 0 8px rgba(34,197,94,0.07),
       0 0 40px rgba(22,163,74,0.22),
@@ -569,11 +570,13 @@
 
   .option-block {
     background: var(--g9);
-    border: 1px solid var(--border2);
-    border-radius: var(--radius-sm);
-    padding: 8px 12px;
-    margin: 5px 0;
+    border-left: 3px solid var(--g4);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    padding: 10px 14px 10px 12px;
+    margin: 6px 0;
+    transition: border-left-color 0.2s, background 0.2s;
   }
+  .option-block:hover { border-left-color: var(--g3); }
 
   .option-label {
     display: flex;
@@ -602,12 +605,17 @@
     font-size: 12.5px;
     font-weight: 700;
     color: var(--g1);
-    padding: 5px 0 2px;
-    border-bottom: 1.5px solid var(--border2);
-    margin: 5px 0 3px;
+    padding: 5px 10px;
+    border-left: 3px solid var(--g3);
+    background: linear-gradient(90deg, rgba(22,163,74,0.07) 0%, transparent 80%);
+    border-radius: 0 6px 6px 0;
+    margin: 6px 0 3px;
   }
 
-  html[data-theme="dark"] .special-heading { color: var(--g5); }
+  html[data-theme="dark"] .special-heading {
+    color: var(--g5);
+    background: linear-gradient(90deg, rgba(34,197,94,0.08) 0%, transparent 80%);
+  }
   html[data-theme="dark"] .option-label { color: var(--g5); }
   html[data-theme="dark"] .caps-header { color: var(--g5); }
 
@@ -967,6 +975,130 @@
   .scroll-btn svg { width: 15px; height: 15px; fill: currentColor; }
 
   .chat-container { position: relative; flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+  /* ── WELCOME LOGO RINGS ── */
+  .welcome-logo::before,
+  .welcome-logo::after {
+    content: "";
+    position: absolute;
+    inset: -14px;
+    border-radius: 30px;
+    border: 1.5px solid rgba(34,197,94,0.22);
+    animation: ringPulse 3s ease-in-out infinite;
+    pointer-events: none;
+  }
+  .welcome-logo::after {
+    inset: -26px;
+    border-radius: 38px;
+    border-color: rgba(34,197,94,0.10);
+    animation-delay: 0.9s;
+  }
+  @keyframes ringPulse {
+    0%, 100% { opacity: 0.85; transform: scale(1); }
+    50%       { opacity: 0.12; transform: scale(1.06); }
+  }
+
+  /* ── WELCOME ITEMS STAGGER ── */
+  .welcome-screen > *:nth-child(1) { animation-delay: 0.04s; }
+  .welcome-screen > *:nth-child(2) { animation-delay: 0.10s; }
+  .welcome-screen > *:nth-child(3) { animation-delay: 0.17s; }
+  .welcome-screen > *:nth-child(4) { animation-delay: 0.24s; }
+  .welcome-screen > *:nth-child(5) { animation-delay: 0.30s; }
+  .welcome-screen > *:nth-child(6) { animation-delay: 0.36s; }
+  .welcome-screen > *:nth-child(7) { animation-delay: 0.42s; }
+
+  /* ── CHIP STAGGER ENTRANCE ── */
+  @keyframes chipIn {
+    from { opacity: 0; transform: translateY(8px) scale(0.92); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+  }
+  .welcome-chips .chip:nth-child(1) { animation: chipIn 0.45s var(--spring) 0.16s both; }
+  .welcome-chips .chip:nth-child(2) { animation: chipIn 0.45s var(--spring) 0.22s both; }
+  .welcome-chips .chip:nth-child(3) { animation: chipIn 0.45s var(--spring) 0.28s both; }
+  .welcome-chips .chip:nth-child(4) { animation: chipIn 0.45s var(--spring) 0.34s both; }
+  .welcome-chips .chip:nth-child(5) { animation: chipIn 0.45s var(--spring) 0.40s both; }
+  .welcome-chips .chip:nth-child(6) { animation: chipIn 0.45s var(--spring) 0.46s both; }
+
+  /* ── MESSAGE SLIDE IN FROM SIDES ── */
+  .message-row.user { animation-name: msgSlideRight; animation-duration: 0.30s; }
+  .message-row.ai   { animation-name: msgSlideLeft;  animation-duration: 0.30s; }
+  @keyframes msgSlideRight {
+    from { opacity: 0; transform: translateX(16px) translateY(4px); }
+    to   { opacity: 1; transform: translateX(0) translateY(0); }
+  }
+  @keyframes msgSlideLeft {
+    from { opacity: 0; transform: translateX(-16px) translateY(4px); }
+    to   { opacity: 1; transform: translateX(0) translateY(0); }
+  }
+
+  /* ── AI BUBBLE HOVER LIFT ── */
+  .message-row.ai .message-text {
+    transition: box-shadow 0.22s var(--ease), transform 0.22s var(--ease), border-color 0.2s;
+  }
+  .message-row.ai .message-text:hover {
+    box-shadow: 0 6px 24px rgba(5,46,22,0.12);
+    transform: translateY(-1.5px);
+    border-color: rgba(22,163,74,0.40);
+  }
+
+  /* ── SCROLL BTN SPRING ENTRANCE ── */
+  @keyframes scrollBtnIn {
+    from { transform: translateY(14px) scale(0.65); opacity: 0; }
+    to   { transform: translateY(0) scale(1); opacity: 1; }
+  }
+  .scroll-btn { transition: transform 0.2s var(--spring), background 0.15s, color 0.15s; }
+  .scroll-btn.visible { animation: scrollBtnIn 0.42s var(--spring) both; }
+  .scroll-btn:hover { transform: scale(1.18) !important; color: var(--g2); }
+
+  /* ── SEND BUTTON RIPPLE ── */
+  .send-btn { overflow: hidden; position: relative; }
+  .send-ripple {
+    position: absolute;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.40);
+    width: 70px; height: 70px;
+    top: 50%; left: 50%;
+    margin-top: -35px; margin-left: -35px;
+    transform: scale(0);
+    animation: rippleAnim 0.55s ease-out forwards;
+    pointer-events: none;
+  }
+  @keyframes rippleAnim {
+    to { transform: scale(2.4); opacity: 0; }
+  }
+
+  /* ── TYPING BUBBLE GLOW PULSE ── */
+  @keyframes typingGlow {
+    0%, 100% { box-shadow: var(--shadow-sm); }
+    50%       { box-shadow: 0 2px 20px rgba(22,163,74,0.16); }
+  }
+  .typing-bubble { animation: typingGlow 2.4s ease infinite; }
+
+  /* ── INPUT FOCUS ENHANCED GLOW ── */
+  .input-row:focus-within {
+    box-shadow: 0 0 0 3px rgba(34,197,94,0.14), 0 2px 12px rgba(22,163,74,0.08);
+  }
+
+  /* ── HEADER ANIMATED GRADIENT ── */
+  .chat-header {
+    background: linear-gradient(135deg, var(--g0) 0%, var(--g1) 35%, var(--g2) 70%, var(--g3) 100%);
+    background-size: 200% 200%;
+    animation: headerGrad 8s ease infinite;
+  }
+  @keyframes headerGrad {
+    0%   { background-position: 0% 50%; }
+    50%  { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+
+  /* ── BADGE PULSE ── */
+  .header-badge {
+    animation: badgePop 4s ease infinite;
+  }
+  @keyframes badgePop {
+    0%, 90%, 100% { box-shadow: none; }
+    95% { box-shadow: 0 0 0 3px rgba(134,239,172,0.25); }
+  }
 </style>
 </head>
 <body>
@@ -1251,8 +1383,6 @@
 
   // ── RENDER AI CONTENT ──
   function renderAIContent(text) {
-    // Escape HTML entities once at the top. All line-level fragments below are
-    // substrings of this already-escaped string and are safe to insert as innerHTML.
     const escaped = text
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
@@ -1260,46 +1390,82 @@
 
     const lines = escaped.split("\n");
     let html = '<div class="msg-body">';
+    let inOptionBlock = false;
+
+    const closeOption = () => {
+      if (inOptionBlock) { html += '</div>'; inOptionBlock = false; }
+    };
 
     for (let i = 0; i < lines.length; i++) {
       const trimmed = lines[i].trim();
 
       if (!trimmed) { html += '<div class="msg-spacer"></div>'; continue; }
 
-      if (/^─{5,}$/.test(trimmed)) { html += '<div class="bilingual-divider"></div>'; continue; }
-      if (trimmed === "[ English ]") { html += '<div class="lang-badge lang-en"><span class="badge-dot"></span>English</div>'; continue; }
-      if (trimmed.startsWith("[") && trimmed.includes("မြန်မာ")) { html += '<div class="lang-badge lang-mm"><span class="badge-dot"></span>မြန်မာဘာသာ</div>'; continue; }
+      // Bilingual divider
+      if (/^─{5,}$/.test(trimmed)) {
+        closeOption();
+        html += '<div class="bilingual-divider"></div>';
+        continue;
+      }
 
-      const optionMatch = trimmed.match(/^(Option ([A-Z])):\s*(.*)/);
+      // Language badges
+      if (trimmed === "[ English ]") {
+        closeOption();
+        html += '<div class="lang-badge lang-en"><span class="badge-dot"></span>English</div>';
+        continue;
+      }
+      if (trimmed.startsWith("[") && trimmed.includes("မြန်မာ")) {
+        closeOption();
+        html += '<div class="lang-badge lang-mm"><span class="badge-dot"></span>မြန်မာဘာသာ</div>';
+        continue;
+      }
+
+      // Option blocks — open a container div for each option
+      const optionMatch = trimmed.match(/^Option ([A-Z]):\s*(.*)/);
       if (optionMatch) {
-        html += `<div class="option-label"><span class="option-letter">${optionMatch[2]}</span>${optionMatch[3] || ""}</div>`;
+        closeOption();
+        html += `<div class="option-block">`;
+        html += `<div class="option-label"><span class="option-letter">${optionMatch[1]}</span>${optionMatch[2] || ""}</div>`;
+        inOptionBlock = true;
         continue;
       }
 
-      if (/^(My Recommendation|Next Steps|Real-World Example|This situation involves):/.test(trimmed)) {
-        html += `<div class="special-heading">${trimmed}</div>`;
-        continue;
-      }
-
+      // Bullet items (may appear inside option blocks — keep them inside)
       if (trimmed.startsWith("- ")) {
         html += `<div class="bullet-item"><span class="bullet-dot">•</span><span>${trimmed.slice(2)}</span></div>`;
         continue;
       }
 
-      const numMatch = trimmed.match(/^(\d+)\.\s+([\s\S]+)/);
+      // Numbered items
+      const numMatch = trimmed.match(/^(\d+)\.\s+(.+)/);
       if (numMatch) {
         html += `<div class="numbered-item"><span class="num-badge">${numMatch[1]}</span><span>${numMatch[2]}</span></div>`;
         continue;
       }
 
-      if (trimmed.length >= 10 && !/[a-z]/.test(trimmed) && /[A-Z]{3}/.test(trimmed)) {
+      // Special headings
+      if (/^(My Recommendation|Next Steps|Real-World Example|This situation involves):/.test(trimmed)) {
+        closeOption();
+        html += `<div class="special-heading">${trimmed}</div>`;
+        continue;
+      }
+
+      // CAPS headers — fixed: require no Burmese chars, no lowercase, 2+ consecutive uppercase letters
+      const hasBurmese = /[\u1000-\u109F\uAA60-\uAA7F]/.test(trimmed);
+      const hasLower   = /[a-z]/.test(trimmed);
+      const hasUpper   = /[A-Z]{2,}/.test(trimmed);
+      if (!hasBurmese && !hasLower && hasUpper && trimmed.length >= 6 && trimmed.length <= 90) {
+        closeOption();
         html += `<div class="caps-header">${trimmed}</div>`;
         continue;
       }
 
+      // Regular paragraph — close any open option block first
+      closeOption();
       html += `<p class="msg-para">${trimmed}</p>`;
     }
 
+    closeOption();
     html += '</div>';
     return html;
   }
@@ -1544,6 +1710,14 @@
       e.preventDefault();
       sendMessage();
     }
+  });
+
+  // ── SEND BUTTON RIPPLE ──
+  sendBtn.addEventListener("pointerdown", (e) => {
+    const ripple = document.createElement("span");
+    ripple.className = "send-ripple";
+    sendBtn.appendChild(ripple);
+    ripple.addEventListener("animationend", () => ripple.remove());
   });
 
   // ── INIT ──
