@@ -38,6 +38,8 @@ const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // MEMORY STORAGE
 // ==========================
 
+// chunks: { text: string, source: string }[]
+// vectorDB: { text: string, source: string, embedding: number[] }[]
 let chunks = [];
 let vectorDB = [];
 const sessionHistories = {};
@@ -127,13 +129,13 @@ async function getEmbedding(text) {
 // TEXT SPLITTER
 // ==========================
 
-function splitText(text, size = 500, overlap = 100) {
+function splitText(text, source, size = 500, overlap = 100) {
   const words = text.split(/\s+/);
-  let result = [];
+  const result = [];
   const step = size - overlap;
   for (let i = 0; i < words.length; i += step) {
     const chunk = words.slice(i, i + size).join(" ");
-    if (chunk.trim()) result.push(chunk);
+    if (chunk.trim()) result.push({ text: chunk, source });
     if (i + size >= words.length) break;
   }
   return result;
@@ -154,7 +156,7 @@ async function loadPDFs() {
     }
 
     const files = fs.readdirSync(folderPath);
-    let allText = "";
+    chunks = [];
 
     for (const file of files) {
       if (!file.toLowerCase().endsWith(".pdf")) continue;
@@ -165,27 +167,38 @@ async function loadPDFs() {
         const data = new Uint8Array(fs.readFileSync(pdfPath));
         const pdf = await pdfjsLib.getDocument({ data, standardFontDataUrl }).promise;
 
+        let fileText = "";
         for (let i = 1; i <= pdf.numPages; i++) {
           const page = await pdf.getPage(i);
           const content = await page.getTextContent();
           const strings = content.items
             .map(item => item.str)
             .filter(str => str && str.trim().length > 0);
-          allText += strings.join(" ") + "\n";
+          fileText += strings.join(" ") + "\n";
         }
+
+        if (!fileText.trim()) {
+          console.log(`⚠️ No text extracted from ${file}`);
+          continue;
+        }
+
+        // Tag every chunk with this file's name as source
+        const fileChunks = splitText(fileText, file.replace(/\.pdf$/i, ""), 500, 100);
+        chunks.push(...fileChunks);
+        console.log(`✅ ${file}: ${fileChunks.length} chunks`);
+
       } catch (fileErr) {
         console.log(`❌ Failed to read ${file}:`, fileErr.message);
       }
     }
 
-    if (!allText.trim()) {
-      console.log("⚠️ No text extracted from PDFs");
+    if (chunks.length === 0) {
+      console.log("⚠️ No chunks created from any PDF");
       return;
     }
 
-    chunks = splitText(allText, 500);
-    console.log(`✅ Created ${chunks.length} chunks`);
-    console.log("🔥 Sample:", chunks[0]?.slice(0, 200));
+    console.log(`✅ Total chunks: ${chunks.length}`);
+    console.log("🔥 Sample:", chunks[0]?.text?.slice(0, 200));
   } catch (err) {
     console.log("❌ PDF ERROR:", err.message);
   }
@@ -210,9 +223,9 @@ async function buildVectorDB() {
 
   console.log("🔄 Building vector DB...");
   for (const chunk of chunks) {
-    const embedding = await getEmbedding(chunk);
+    const embedding = await getEmbedding(chunk.text);
     if (!embedding) continue;
-    vectorDB.push({ text: chunk, embedding });
+    vectorDB.push({ text: chunk.text, source: chunk.source, embedding });
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   console.log("✅ Vector DB ready:", vectorDB.length);
@@ -237,20 +250,24 @@ function cosineSimilarity(a, b) {
 }
 
 async function searchRelevantChunks(query, topK = 15) {
+  // Returns: { text, source, score }[]
+  if (vectorDB.length === 0) return chunks.slice(0, 15);
+
   const queryEmbedding = await getEmbedding(query);
   if (!queryEmbedding) return chunks.slice(0, 15);
 
   const scored = vectorDB
     .map(item => ({
       text: item.text,
+      source: item.source || "Document",
       score: cosineSimilarity(queryEmbedding, item.embedding)
     }))
     .sort((a, b) => b.score - a.score);
 
   const highRelevance = scored.filter(i => i.score > 0.18).slice(0, topK);
-  if (highRelevance.length >= 3) return highRelevance.map(i => i.text);
+  if (highRelevance.length >= 3) return highRelevance;
 
-  return scored.slice(0, Math.max(topK, 8)).map(i => i.text);
+  return scored.slice(0, Math.max(topK, 8));
 }
 
 // ==========================
@@ -471,11 +488,31 @@ app.post("/chat", async (req, res) => {
     const truncatedForEmbedding = smartTruncateForEmbedding(userMessage);
     const enhancedQuery = `${truncatedForEmbedding} ${diagnosedCategories.join(" ")}`;
 
+    // Retrieve source-tagged chunks
     let relevantChunks = await searchRelevantChunks(enhancedQuery, 12);
-    let pdfContext = relevantChunks.join("\n\n");
+
+    // If retrieval returned raw chunk objects (fallback path returns plain objects too)
+    // Build formatted context with source labels for each excerpt
+    let pdfContext;
+    if (relevantChunks.length > 0 && typeof relevantChunks[0] === "object" && relevantChunks[0].text) {
+      // Deduplicate by source to show which docs contributed
+      const sourcesSeen = new Set();
+      relevantChunks.forEach(c => sourcesSeen.add(c.source));
+      console.log("📚 Sources used:", [...sourcesSeen].join(", "));
+
+      pdfContext = relevantChunks
+        .map(c => `[FROM DOCUMENT: "${c.source}"]\n${c.text}`)
+        .join("\n\n────────\n\n");
+    } else {
+      // Absolute fallback — raw string chunks
+      pdfContext = relevantChunks.join("\n\n");
+    }
 
     if (!pdfContext || pdfContext.trim().length < 50) {
-      pdfContext = chunks.slice(0, 15).join("\n\n");
+      // Fall back to first chunks across all docs if retrieval fails entirely
+      pdfContext = chunks.slice(0, 12)
+        .map(c => `[FROM DOCUMENT: "${c.source || "Document"}"]\n${c.text || c}`)
+        .join("\n\n────────\n\n");
     }
 
     let webContext = null;
@@ -489,39 +526,40 @@ app.post("/chat", async (req, res) => {
     let hist = sessionHistories[sessionId].slice(-MAX_HISTORY);
     sessionHistories[sessionId] = hist;
 
-    const contextMessages = [
-      {
-        role: "system",
-        content: systemPrompt
-      },
-      {
-        role: "system",
-        content: `DIAGNOSED PBR CHAPTERS FOR THIS QUERY: ${diagnosedCategories.join(", ").toUpperCase()}
-Focus primarily on these chapters. Quote or closely follow specific rules from the PDF knowledge below.
-If numbers are involved, calculate them step by step using PBR formulas.`
-      },
-      {
-        role: "system",
-        content: `=== PBR COURSE KNOWLEDGE BASE (from uploaded PDFs — treat this as your primary source) ===
-${pdfContext}
-=== END OF PDF KNOWLEDGE ===
-IMPORTANT: Base your answer directly on the text above. Pull exact language, rules, conditions, and numbers. If a specific rule, clause, or formula is present in the text above, quote or closely paraphrase it — do not replace it with a vague summary. If the exact answer is in the text, your response should reflect that. No emojis.`
-      }
-    ];
+    // Build the document context block — placed LAST (right before user messages)
+    // so it has strongest attention from the model
+    const docContextMessage = {
+      role: "system",
+      content: `DOCUMENT KNOWLEDGE — YOUR PRIMARY SOURCE OF TRUTH
+The excerpts below come directly from Sayar Nyan Lin Aung's uploaded course documents.
+When you answer, you MUST:
+1. Base your answer on what the documents actually say — not on general knowledge
+2. Quote or closely paraphrase the document text when a relevant rule is present
+3. Cite the source document by name: e.g. "According to [document name]..."
+4. If a rule, number, formula, or clause appears in the text below, use it exactly
+5. If the document does NOT cover something, say so clearly, then use your PBR framework knowledge as backup
 
-    if (webContext) {
-      contextMessages.push({
-        role: "system",
-        content: `=== REAL-WORLD DATA & CASE STUDIES (from web search — use to enrich your answer) ===
+══════════════════════════════════════════
+${pdfContext}
+══════════════════════════════════════════
+
+CHAPTER FOCUS FOR THIS QUERY: ${diagnosedCategories.join(", ").toUpperCase()}
+If numbers are involved, calculate step by step. No emojis.`
+    };
+
+    const webContextMessage = webContext ? {
+      role: "system",
+      content: `REAL-WORLD DATA (web search):
 ${webContext}
-=== END OF WEB DATA ===
-Use the above to add a "Real-World Example:" section to your response. Connect the real example back to the PBR chapter/rule that applies. If the data includes specific numbers, timelines, or named cases — use them. No emojis.`
-      });
-    }
+Use this to add a "Real-World Example:" section. Connect back to the document rule. If specific numbers, named cases, or timelines are present — use them. No emojis.`
+    } : null;
 
     const messages = [
-      ...contextMessages,
-      ...sessionHistories[sessionId]
+      { role: "system", content: systemPrompt },
+      ...(webContextMessage ? [webContextMessage] : []),
+      ...sessionHistories[sessionId].slice(0, -1),  // history except last user msg
+      docContextMessage,                             // doc context right before user's message
+      sessionHistories[sessionId].at(-1)             // the actual user message last
     ];
 
     res.setHeader("Content-Type", "text/event-stream");
