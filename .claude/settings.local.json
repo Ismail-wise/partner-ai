@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git checkout:*)",
+      "Bash(node --input-type=module)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(node:*)",
+      "Bash(npm install:*)",
+      "Bash(npm uninstall:*)",
+      "Bash([ -f \"C:/Users/DELL/OneDrive/Desktop/partner-ai/vectordb_cache.json\" ])",
+      "Bash(python3:*)"
+    ]
+  }
+}
