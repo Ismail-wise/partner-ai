@@ -1390,25 +1390,34 @@ async function sendMessage(text){
   }
 
   // ── typewriter engine ──────────────────────
-  // Runs every 14ms; speed adapts to how far behind the display is
+  // Stream as plain text (no re-render every tick), then format once at the end.
+  // This prevents the "message editing itself" effect.
   function startTypewriter(contentEl){
     if(twTimer) return;
+
+    // Plain-text live node — textContent assignment never re-parses HTML
+    contentEl.innerHTML = "";
+    const liveNode = document.createElement("span");
+    liveNode.style.cssText = "white-space:pre-wrap;word-break:break-word;";
+    contentEl.appendChild(liveNode);
+
     twTimer = setInterval(()=>{
       const lag = received.length - displayed.length;
       if(lag > 0){
-        // Catch up faster when a big chunk just arrived
         const step = lag > 400 ? 22 : lag > 120 ? 9 : 3;
-        displayed  = received.slice(0, displayed.length + step);
-        contentEl.innerHTML = formatAI(displayed);
+        displayed = received.slice(0, displayed.length + step);
+        liveNode.textContent = displayed;   // grows forward only — no flicker, no re-edit
         document.getElementById("status-label").textContent = "Typing…";
         const box = document.getElementById("chat-box");
         if(box.scrollHeight - box.scrollTop - box.clientHeight < 220) scrollToBottom();
       } else if(sseEnded){
-        // All text shown AND server finished → done
         clearInterval(twTimer); twTimer = null;
+        // All text received — render full markdown exactly once
+        contentEl.innerHTML = formatAI(displayed);
+        scrollToBottom();
         onTypingComplete();
       }
-      // else: waiting for next chunk from server — do nothing this tick
+      // lag === 0 and stream still open: wait silently for next chunk
     }, 14);
   }
 
