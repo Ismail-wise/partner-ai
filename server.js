@@ -330,7 +330,8 @@ DOCUMENT EXCERPTS — CONSULT THESE FIRST
 ══════════════════════════════════════════
 ${pdfContext}
 ══════════════════════════════════════════
-When documents contain relevant content, cite them by name. If they don't cover this question, draw on expert partnership knowledge and indicate that.`;
+When documents contain relevant content, cite them by name. If they don't cover this question, draw on expert partnership knowledge and indicate that.
+IMPORTANT: Always finish your response completely, then end with one warm, relevant follow-up question to help the user explore their situation further. Never leave a response unfinished.`;
 
     // Convert session history to Gemini format
     // Gemini uses "user" and "model" roles (not "assistant")
@@ -353,7 +354,8 @@ When documents contain relevant content, cite them by name. If they don't cover 
         systemInstruction: fullSystemInstruction,
         generationConfig: {
           temperature: 0.5,
-          maxOutputTokens: 6000
+          maxOutputTokens: 8000,
+          thinkingConfig: { thinkingBudget: 0 }  // disable thinking tokens — prevents stream parse errors
         }
       });
 
@@ -361,10 +363,14 @@ When documents contain relevant content, cite them by name. If they don't cover 
       const result = await chat.sendMessageStream(userMessage);
 
       for await (const chunk of result.stream) {
-        const text = chunk.text();
-        if (text) {
-          fullReply += text;
-          res.write(`data: ${JSON.stringify({ text })}\n\n`);
+        try {
+          const text = chunk.text();
+          if (text) {
+            fullReply += text;
+            res.write(`data: ${JSON.stringify({ text })}\n\n`);
+          }
+        } catch (_) {
+          // skip thinking tokens or any unparseable chunk — do not crash the stream
         }
       }
 
@@ -378,13 +384,22 @@ When documents contain relevant content, cite them by name. If they don't cover 
 
     } catch (streamErr) {
       console.error("❌ Stream error:", streamErr.message);
-      const hint =
-        streamErr.message?.includes("429") ? "Rate limit or quota exceeded (429) — please wait." :
-        streamErr.message?.includes("401") ? "Invalid API key (401)." :
-        streamErr.message?.includes("503") ? "Gemini service temporarily unavailable (503)." :
-        `Stream error: ${streamErr.message}`;
-      res.write(`data: ${JSON.stringify({ text: `\n\n⚠️ ${hint}` })}\n\n`);
-      res.write(`data: [DONE]\n\n`);
+      if (fullReply.length > 0) {
+        // Partial content was already streamed — close cleanly without an error message
+        res.write(`data: [DONE]\n\n`);
+      } else {
+        // Nothing was sent yet — give a friendly retry message
+        const hint =
+          streamErr.message?.includes("429")
+            ? "I'm receiving too many requests right now. Please wait a moment and try again."
+          : streamErr.message?.includes("401")
+            ? "There's an authentication issue. Please check the API configuration."
+          : streamErr.message?.includes("503")
+            ? "The AI service is temporarily unavailable. Please try again in a moment."
+          : "Something went wrong on my end. Please try sending your message again.";
+        res.write(`data: ${JSON.stringify({ text: hint })}\n\n`);
+        res.write(`data: [DONE]\n\n`);
+      }
     } finally {
       clearInterval(heartbeat);
       res.end();
