@@ -756,6 +756,95 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
   0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.3)}
   50%    {box-shadow:0 0 0 5px rgba(34,197,94,0)}
 }
+
+/* ══════════════════════════════════════════
+   DESIGN V2 — PREMIUM UPGRADES
+══════════════════════════════════════════ */
+
+/* Floating particle canvas */
+#particle-canvas{position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;}
+
+/* Directional message slide-in */
+.message-row.user{animation:userIn .38s cubic-bezier(.34,1.56,.64,1) both;}
+.message-row.ai  {animation:aiIn   .38s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes userIn{from{opacity:0;transform:translateX(28px) scale(.93)}to{opacity:1;transform:none}}
+@keyframes aiIn  {from{opacity:0;transform:translateX(-28px) scale(.93)}to{opacity:1;transform:none}}
+
+/* Send button ripple */
+.send-btn{position:relative;overflow:hidden;}
+.send-btn .ripple{
+  position:absolute;border-radius:50%;pointer-events:none;
+  background:rgba(255,255,255,.45);transform:scale(0);
+  animation:rippleOut .55s ease-out forwards;
+}
+@keyframes rippleOut{to{transform:scale(5);opacity:0;}}
+
+/* Language pill in header */
+.lang-pill{
+  display:inline-flex;align-items:center;gap:3px;
+  font-size:9px;font-weight:700;letter-spacing:.3px;
+  color:rgba(187,247,208,.72);
+  background:rgba(34,197,94,.1);border:1px solid rgba(34,197,94,.24);
+  padding:2px 7px;border-radius:10px;margin-left:6px;vertical-align:middle;
+}
+
+/* Welcome bilingual row */
+.welcome-langs{
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  font-size:11.5px;color:var(--t3);
+  background:linear-gradient(90deg,transparent,var(--surf3),transparent);
+  border:1px solid var(--border);
+  padding:8px 22px;border-radius:28px;
+  box-shadow:var(--sh-sm);max-width:440px;
+}
+html[data-theme="dark"] .welcome-langs{background:linear-gradient(90deg,transparent,rgba(34,197,94,.05),transparent);}
+.welcome-langs .lang{font-weight:700;color:var(--g5);}
+.welcome-langs .sep{opacity:.3;user-select:none;}
+
+/* Typing bubble ambient glow */
+.typing-bubble{animation:typingGlow 2.2s ease-in-out infinite;}
+@keyframes typingGlow{
+  0%,100%{box-shadow:var(--sh-sm)}
+  50%    {box-shadow:var(--sh-sm),0 0 22px rgba(22,163,74,.2)}
+}
+
+/* Source pill hover */
+.source-pill{transition:all .22s var(--spring);}
+.source-pill:hover{transform:translateY(-2px);box-shadow:0 4px 14px rgba(245,158,11,.22);border-color:rgba(245,158,11,.5);}
+
+/* Scroll btn arrow bounce */
+.scroll-btn:hover svg{animation:arrowBounce .4s var(--spring);}
+@keyframes arrowBounce{0%,100%{transform:none}50%{transform:translateY(4px)}}
+
+/* Message text smooth border on AI bubble */
+.message-row.ai .message-text{
+  transition:box-shadow .25s ease;
+}
+.message-row.ai:hover .message-text{
+  box-shadow:var(--sh-md),0 0 0 1px rgba(22,163,74,.1);
+}
+
+/* Chat box refined gradient */
+.chat-box{
+  background:linear-gradient(180deg,var(--surf) 0%,var(--surf) 85%,rgba(240,253,244,.6) 100%);
+}
+html[data-theme="dark"] .chat-box{
+  background:linear-gradient(180deg,var(--surf) 0%,var(--surf) 85%,rgba(6,15,9,.98) 100%);
+}
+
+/* Welcome screen better spacing */
+.welcome-screen{gap:14px;}
+.welcome-screen h2{font-size:24px;}
+.welcome-motto{font-size:12px;max-width:460px;}
+
+/* Better chip focus ring */
+.chip:focus-visible{outline:2px solid var(--g5);outline-offset:2px;}
+
+/* Input hint bilingual */
+.input-hint{font-style:italic;}
+
+/* Hdr-sub refined */
+.hdr-sub{font-size:10px;color:rgba(187,247,208,.55);margin-top:2px;display:flex;align-items:center;flex-wrap:wrap;gap:2px;}
 </style>
 </head>
 <body>
@@ -783,7 +872,7 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
   <div class="sb-section">Conversations</div>
   <div id="sb-list"><div class="sb-empty">No conversations yet.<br>Start chatting to build history.</div></div>
 
-  <div class="sb-footer">Partnership Business AI</div>
+  <div class="sb-footer">Partnership Business AI · EN &amp; မြန်မာဘာသာ</div>
 </aside>
 
 <!-- ══ CHAT WRAPPER ═══════════════════════════════ -->
@@ -799,10 +888,10 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
 
     <div class="hdr-info">
       <div class="hdr-name">Sayar Nyan Lin Aung's AI Chat</div>
-      <div class="hdr-sub">Partnership Business Intelligence · Gemini 2.5 Flash</div>
+      <div class="hdr-sub">Partnership AI · Gemini 2.5 Flash <span class="lang-pill">EN · မြ</span></div>
       <div class="hdr-status">
         <div class="status-dot"></div>
-        <span id="status-label">Online · Ready</span>
+        <span id="status-label">Ready to help · Online</span>
       </div>
     </div>
 
@@ -824,19 +913,26 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
       <div class="welcome-logo-wrap">
         <div class="welcome-logo">🎓</div>
       </div>
-      <h2>Partnership Business Intelligence</h2>
-      <p class="welcome-desc">Your expert AI assistant for partnership law, agreements, capital structures, dispute resolution, and everything in between.</p>
-      <div class="welcome-motto">"Without Rules, we all go back to the jungle."</div>
-      <div class="chips-label">Try asking about</div>
+      <h2>Hello! How can I help you today?</h2>
+      <p class="welcome-desc">I'm your personal Partnership Business AI consultant — here to help with partnership law, agreements, capital structures, and business strategy. I'm friendly, patient, and happy to help in any language you prefer.</p>
+      <div class="welcome-langs">
+        <span class="lang">English</span>
+        <span class="sep">·</span>
+        <span class="lang">မြန်မာဘာသာ</span>
+        <span class="sep">|</span>
+        <span>I'll reply in whichever language you use</span>
+      </div>
+      <div class="welcome-motto">"Good partnerships are built on clear agreements, mutual respect, and open communication."</div>
+      <div class="chips-label">Common questions — or ask anything in မြန်မာဘာသာ</div>
       <div class="welcome-chips">
         <div class="chip" onclick="sendChip(this)"><span class="chip-icon">⚖️</span>Partner not contributing equally</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🚪</span>How to write exit rules</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🔄</span>Transfer of partnership shares</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">💰</span>Profit splitting arrangements</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🤝</span>Partnership agreement essentials</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">⚡</span>Deadlock resolution clauses</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">💼</span>Capital contribution rules</div>
-        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🔒</span>Non-compete for partners</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">📝</span>How to write exit clauses</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">💰</span>How should we split profits fairly?</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🤝</span>What makes a strong partnership agreement?</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">⚡</span>Deadlock resolution options</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🔒</span>Non-compete clause guidance</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🏦</span>Capital contribution advice</div>
+        <div class="chip" onclick="sendChip(this)"><span class="chip-icon">🚪</span>Partner buyout process</div>
       </div>
     </div>
 
@@ -867,7 +963,7 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
   <div class="input-area">
     <div class="input-row">
       <textarea id="msg-input"
-        placeholder="Ask about partnership law, agreements, disputes…"
+        placeholder="Ask anything in English or မြန်မာဘာသာ — partnership law, agreements, disputes, or anything else…"
         rows="1"
         onkeydown="handleKey(event)"
         oninput="handleInput()"
@@ -877,7 +973,7 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
       </button>
     </div>
     <div class="input-footer">
-      <span class="input-hint">Enter to send · Shift+Enter for new line</span>
+      <span class="input-hint">Enter to send · Shift+Enter for new line · EN or မြန်မာ welcome</span>
       <span class="char-count" id="char-count">0</span>
     </div>
   </div>
@@ -1502,6 +1598,61 @@ function formatAI(raw){
   }
   return html;
 }
+
+// ══════════════════════════════════════════════
+//  SEND BUTTON RIPPLE
+// ══════════════════════════════════════════════
+document.getElementById("send-btn").addEventListener("mousedown", function(e){
+  const r   = document.createElement("span");
+  r.className = "ripple";
+  const d   = Math.max(this.clientWidth, this.clientHeight);
+  r.style.cssText = `width:${d}px;height:${d}px;top:${e.offsetY-d/2}px;left:${e.offsetX-d/2}px;position:absolute;`;
+  this.appendChild(r);
+  setTimeout(() => r.remove(), 600);
+});
+
+// ══════════════════════════════════════════════
+//  FLOATING PARTICLE SYSTEM
+// ══════════════════════════════════════════════
+(function initParticles(){
+  const canvas = document.createElement("canvas");
+  canvas.id = "particle-canvas";
+  document.body.prepend(canvas);
+  const ctx = canvas.getContext("2d");
+
+  function resize(){ canvas.width = innerWidth; canvas.height = innerHeight; }
+  resize();
+  window.addEventListener("resize", resize);
+
+  const pts = Array.from({length: 50}, () => ({
+    x:  Math.random() * innerWidth,
+    y:  Math.random() * innerHeight,
+    r:  Math.random() * 1.8 + 0.4,
+    dx: (Math.random() - 0.5) * 0.32,
+    dy: -(Math.random() * 0.42 + 0.12),
+    a:  Math.random() * 0.38 + 0.08
+  }));
+
+  function draw(){
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    const dark = document.documentElement.getAttribute("data-theme") === "dark";
+    pts.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+      ctx.fillStyle = dark
+        ? `rgba(34,197,94,${(p.a * 0.6).toFixed(3)})`
+        : `rgba(22,163,74,${p.a.toFixed(3)})`;
+      ctx.fill();
+      p.x += p.dx;
+      p.y += p.dy;
+      if (p.y < -10) { p.y = canvas.height + 10; p.x = Math.random() * canvas.width; }
+      if (p.x < -10)               p.x = canvas.width  + 10;
+      if (p.x > canvas.width + 10) p.x = -10;
+    });
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
 </script>
 </body>
 </html>
