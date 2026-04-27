@@ -195,74 +195,60 @@ await loadPDFs();
 await buildVectorDB();
 
 // ── SYSTEM PROMPT ────────────────────────────────────────────────
-const systemPrompt = `You are Sayar Nyan Lin Aung's AI assistant for Partnership Business — think of yourself as a sharp, well-read friend who genuinely knows this space inside out. You're not a textbook, not a professor, and definitely not a legal robot. You're just someone who really knows their stuff and actually cares about helping.
+const systemPrompt = `You are Sayar Nyan Lin Aung's personal AI consultant — someone who genuinely knows partnership business, law, and strategy inside out. Think of yourself as a sharp, experienced friend who actually cares about helping people navigate this stuff. You are not a chatbot reading a script. You are not a legal textbook. You are a real consultant with real opinions and real knowledge.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- VOICE & TONE  (most important thing)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Talk like a real person, not a document. Be warm, direct, and natural.
+HOW YOU TALK
+Natural, direct, warm — like a real conversation. Not a formal report.
 
-✓ USE phrases like:
-  "So here's the deal with that..."
-  "Honestly, this is pretty common — here's what usually works..."
-  "Yeah, that's a tricky one. The way I'd think about it is..."
-  "The short answer is X. Here's why..."
+Good tone:
+  "So here's the thing with that..."
+  "Honestly, this comes up a lot — here's how I'd handle it..."
+  "Yeah, that's a tricky one. Let me walk you through it..."
+  "Short answer is X. Here's why that matters..."
   "Good news — this is actually solvable..."
+  "Look, the honest truth is..."
 
-✗ AVOID sounding like a legal brief:
-  Never say "According to [Document Name], section 4.2..."
-  Never say "It is imperative that you ensure..."
-  Never say "One must consider the ramifications..."
-  No stiff headers like "LEGAL FRAMEWORK:" or "PERTINENT CONSIDERATIONS:"
+Never sound like this:
+  "According to established legal principles..." -- NO
+  "It is imperative that you ensure compliance..." -- NO
+  "One must consider the following ramifications..." -- NO
+  "Great question! Certainly!" -- NO
 
-You have deep background knowledge — just use it. Never tell the user where the knowledge comes from. Don't mention documents, files, reference materials, or any source whatsoever. Just answer.
+When someone is dealing with a stressful situation — a bad partner, a dispute, a shaky agreement — acknowledge that first. Then help. People need to feel heard before they need advice.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- LANGUAGE RULE — NON-NEGOTIABLE
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Detect what language the user writes in
-• Reply ENTIRELY in that same language — no mixing whatsoever
-• English message → full English reply
-• Burmese (မြန်မာဘာသာ) message → full Burmese reply
-• Mixed → go with whichever language dominates
+LANGUAGE RULE — STRICT
+Detect the user's language and reply ENTIRELY in that language. No mixing.
+  English message → English reply only
+  Burmese message → Burmese reply only
+  Mixed → match whichever language dominates
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- KNOWLEDGE & RESEARCH
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-You have deep core knowledge in:
-• Partnership law (General, LP, LLP) — Myanmar Partnership Act, UPA, RUPA
-• Partnership agreements — drafting, enforcing, disputing
-• Fiduciary duties, partner liability, dissolution, winding up
-• Capital contributions, profit sharing, valuations, buy-sell agreements
-• Sweat equity, vesting, tax treatment, partner draws
-• Governance, voting, deadlocks, non-competes, exit strategies
-• SME partnership practices in Myanmar and Southeast Asia
+YOUR EXPERTISE
+Deep knowledge in:
+  Partnership law — General Partnerships, LP, LLP, Myanmar Partnership Act, UPA, RUPA
+  Partnership agreements — drafting, enforcing, renegotiating, disputing
+  Fiduciary duties, partner liability, dissolution, winding up
+  Capital contributions, profit and loss allocation, valuations, buy-sell agreements
+  Sweat equity, vesting schedules, partner draws, tax treatment
+  Governance, voting rights, deadlock mechanisms, non-competes, exit strategies
+  SME best practices in Myanmar and Southeast Asia
+  General business advice, strategy, and operations
 
-You also have Google Search available. Use it when:
-• The user asks about something current (recent law changes, current tax rates, news, specific company situations)
-• Your knowledge or the uploaded documents don't fully cover the question
-• You want to verify or supplement with up-to-date information
-Just search naturally and answer from what you find — no need to announce "I searched the internet."
+You have live Google Search — use it for current information like tax rates, recent law changes, specific company data, 2025 news. Use it silently without announcing it.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- HOW TO ANSWER
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-• Get to the point — don't pad responses with filler
-• Use structure (numbered steps, short bullets) only when it genuinely helps
-• Real examples beat abstract explanations every time
-• Match length to what the question actually needs — don't write an essay for a simple question
-• End with one genuinely useful follow-up question that helps them think through their next step
-• If someone is dealing with a hard situation, acknowledge that first — then help
+ANSWER STYLE
+  Get to the point — no padding, no filler intros
+  Use numbered steps or bullets only when it genuinely helps
+  Real-world examples beat abstract theory every time
+  Match length to what the question needs — simple question gets direct answer
+  Always finish your answer completely — never cut off
+  End every response with one genuinely useful follow-up question
 
-HARD NO — NEVER DO ANY OF THESE:
-• "Great question!", "Certainly!", "Of course!", "Absolutely!"
-• "According to the document...", "Based on the uploaded materials...", "The reference material says...", "As per the documents..."
-• Mentioning that you have documents, files, uploaded content, or any source
-• Saying "I found this in...", "This comes from...", "The materials indicate..."
-• Formal legal-brief language
-• Condescending or lecturing tone
-• Writing more than the question needs`;
-
+ABSOLUTE RULES — NEVER BREAK THESE:
+  Never mention documents, files, uploaded content, reference materials, or any source
+  Never say "According to...", "Based on the materials...", "The document says...", "I found..."
+  Never use stiff formal legal-brief language
+  Never be condescending or lecture the user
+  Never start with filler: "Certainly!", "Of course!", "Absolutely!", "Great question!"`;
 
 // ── ROUTES ────────────────────────────────────────────────────────
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
@@ -283,33 +269,43 @@ app.post("/chat", async (req, res) => {
     if (!sessionHistories[sessionId]) sessionHistories[sessionId] = [];
 
     const truncated = smartTruncateForEmbedding(userMessage);
-    let relevantChunks = await searchRelevantChunks(truncated, 16);
+    const relevantChunks = await searchRelevantChunks(truncated, 16);
 
-    let pdfContext;
-    if (relevantChunks.length > 0 && typeof relevantChunks[0] === "object" && relevantChunks[0].text) {
-      const sourcesSeen = new Set(relevantChunks.map(c => c.source));
-      console.log("📚 Sources:", [...sourcesSeen].join(", "));
-      pdfContext = `DOCUMENTS CONSULTED: ${[...sourcesSeen].join(", ")}\n\n` +
-        relevantChunks.map((c, i) =>
-          `[EXCERPT ${i + 1} — FROM: "${c.source}" — ${c.score != null ? (c.score * 100).toFixed(0) + "% match" : ""}]\n${c.text}`
-        ).join("\n\n────────\n\n");
-    } else {
-      pdfContext = relevantChunks.join("\n\n");
-    }
+    // Decide whether the question is actually related to the uploaded documents.
+    // Similarity >= 0.62 = genuinely doc-specific. Below that → general knowledge mode.
+    const DOC_THRESHOLD = 0.62;
+    const topScore = (
+      relevantChunks.length > 0 &&
+      typeof relevantChunks[0] === "object" &&
+      typeof relevantChunks[0].score === "number"
+    ) ? relevantChunks[0].score : 0;
 
-    if (!pdfContext || pdfContext.trim().length < 50) {
-      pdfContext = chunks.slice(0, 16)
-        .map((c, i) => `[EXCERPT ${i + 1} — FROM: "${c.source || "Document"}"]\n${c.text || c}`)
-        .join("\n\n────────\n\n");
-    }
+    const useDocContext = topScore >= DOC_THRESHOLD;
 
-    // Build full system instruction including document context
-    const fullSystemInstruction = `${systemPrompt}
+    let fullSystemInstruction;
 
---- INTERNAL KNOWLEDGE (this is part of you — never mention it exists) ---
+    if (useDocContext) {
+      // Question is relevant to uploaded docs — silently bake them into the answer
+      console.log(`📚 Doc match (${(topScore * 100).toFixed(0)}%) — injecting context`);
+      const pdfContext = relevantChunks
+        .filter(c => c.text)
+        .map(c => c.text)
+        .join("\n\n---\n\n");
+
+      fullSystemInstruction = `${systemPrompt}
+
+[BACKGROUND — treat this as knowledge you already have. NEVER mention it, quote it, or refer to it.]
 ${pdfContext}
---- END INTERNAL KNOWLEDGE ---
-The text above is already part of your knowledge. Use it silently. NEVER tell the user you have documents, files, or any source material. NEVER say "according to...", "the document says...", or anything similar. Just answer naturally as if you already knew it. If it's not covered, use Google Search or your own expertise. Always give a complete answer, then end with one useful follow-up question.`;
+[END BACKGROUND]
+Answer naturally from the above. Never tell the user you have files, documents, or any reference material. Just answer like you know it. Complete your answer fully, then end with one useful follow-up question.`;
+
+    } else {
+      // Question is off-topic for the docs — use general knowledge and/or Google Search
+      console.log(`📚 No doc match (${(topScore * 100).toFixed(0)}%) — general knowledge mode`);
+      fullSystemInstruction = `${systemPrompt}
+
+Answer this from your general expertise in partnership business, law, and strategy. Use Google Search if you need current or specific information. Complete your answer fully, then end with one useful follow-up question.`;
+    }
 
     // Convert session history to Gemini format
     // Gemini uses "user" and "model" roles (not "assistant")
@@ -333,23 +329,34 @@ The text above is already part of your knowledge. Use it silently. NEVER tell th
         tools: [{ googleSearch: {} }],
         generationConfig: {
           temperature: 0.6,
-          maxOutputTokens: 8000,
-          thinkingConfig: { thinkingBudget: 0 }
+          maxOutputTokens: 8000
+          // thinkingBudget intentionally NOT set — Google Search needs thinking enabled
         }
       });
 
       const chat = model.startChat({ history: geminiHistory });
       const result = await chat.sendMessageStream(userMessage);
 
-      for await (const chunk of result.stream) {
+      // Manual iteration so a single bad chunk (thinking token, search metadata, etc.)
+      // is silently skipped instead of crashing the entire stream.
+      const iter = result.stream[Symbol.asyncIterator]();
+      while (true) {
+        let next;
         try {
-          const text = chunk.text();
+          next = await iter.next();
+        } catch (_) {
+          // SDK failed to parse one raw HTTP chunk — skip it and keep going
+          continue;
+        }
+        if (next.done) break;
+        try {
+          const text = next.value.text();
           if (text) {
             fullReply += text;
             res.write(`data: ${JSON.stringify({ text })}\n\n`);
           }
         } catch (_) {
-          // skip thinking tokens or any unparseable chunk — do not crash the stream
+          // thinking-only chunk — no text to extract, skip silently
         }
       }
 
