@@ -1333,16 +1333,14 @@ function createStreamRow(){
 }
 
 // ══════════════════════════════════════════════
-//  SEND MESSAGE
+//  SEND MESSAGE  (typewriter streaming engine)
 // ══════════════════════════════════════════════
 async function sendMessage(text){
   const input = document.getElementById("msg-input");
   const msg   = (text||input.value).trim();
   if(!msg||isStreaming) return;
 
-  // Hide welcome on first message
   document.getElementById("welcome").style.display = "none";
-
   input.value = "";
   input.style.height = "";
   document.getElementById("char-count").textContent = "0";
@@ -1358,8 +1356,61 @@ async function sendMessage(text){
     document.getElementById("typing-dots").style.display = "none";
   }, 4000);
 
-  let fullText  = "";
+  // ── state ──────────────────────────────────
+  let received  = "";   // full text received from server so far
+  let displayed = "";   // what the typewriter has rendered so far
+  let sseEnded  = false;
   let streamRow = null;
+  let twTimer   = null;
+
+  // ── helpers ────────────────────────────────
+  function finalize(){
+    clearTimeout(skelTimer);
+    document.getElementById("skeleton").style.display = "none";
+    document.getElementById("typing-dots").style.display = "";
+    isStreaming = false;
+    document.getElementById("send-btn").disabled = false;
+    document.getElementById("status-label").textContent = "Ready to help · Online";
+    scrollToBottom();
+  }
+
+  function onTypingComplete(){
+    // reveal action bar + copy button
+    const meta  = document.getElementById("stream-meta");
+    if(meta) meta.style.display = "flex";
+    const cpBtn = document.getElementById("stream-copy-btn");
+    if(cpBtn) cpBtn.setAttribute("onclick", `copyText(this,${JSON.stringify(displayed)})`);
+    // persist to session history
+    const timeStr = fmtTime();
+    currentMsgs.push({role:"ai", content:displayed, time:timeStr});
+    saveChatMsgs(currentChatId, currentMsgs);
+    upsertConvMeta(currentChatId, null, sessionId);
+    renderSidebarList();
+    finalize();
+  }
+
+  // ── typewriter engine ──────────────────────
+  // Runs every 14ms; speed adapts to how far behind the display is
+  function startTypewriter(contentEl){
+    if(twTimer) return;
+    twTimer = setInterval(()=>{
+      const lag = received.length - displayed.length;
+      if(lag > 0){
+        // Catch up faster when a big chunk just arrived
+        const step = lag > 400 ? 22 : lag > 120 ? 9 : 3;
+        displayed  = received.slice(0, displayed.length + step);
+        contentEl.innerHTML = formatAI(displayed);
+        document.getElementById("status-label").textContent = "Typing…";
+        const box = document.getElementById("chat-box");
+        if(box.scrollHeight - box.scrollTop - box.clientHeight < 220) scrollToBottom();
+      } else if(sseEnded){
+        // All text shown AND server finished → done
+        clearInterval(twTimer); twTimer = null;
+        onTypingComplete();
+      }
+      // else: waiting for next chunk from server — do nothing this tick
+    }, 14);
+  }
 
   try{
     const resp = await fetch(API+"/chat",{
@@ -1367,62 +1418,45 @@ async function sendMessage(text){
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({message:msg, sessionId})
     });
-    if(!resp.ok) throw new Error("Server returned HTTP "+resp.status);
+    if(!resp.ok) throw new Error("HTTP "+resp.status);
 
     hideTyping();
     streamRow = createStreamRow();
-    const content = document.getElementById("stream-content");
+    startTypewriter(document.getElementById("stream-content"));
 
+    // ── SSE reader ─────────────────────────
     const reader  = resp.body.getReader();
     const decoder = new TextDecoder();
     let buf = "";
+    let done_flag = false;
 
-    while(true){
+    while(!done_flag){
       const {done, value} = await reader.read();
       if(done) break;
-      buf += decoder.decode(value,{stream:true});
+      buf += decoder.decode(value, {stream:true});
       const lines = buf.split("\n");
-      buf = lines.pop();
+      buf = lines.pop();           // keep incomplete line in buffer
       for(const line of lines){
         if(!line.startsWith("data:")) continue;
         const raw = line.slice(5).trim();
-        if(raw==="[DONE]") break;
+        if(raw === "[DONE]"){ done_flag = true; break; }
         try{
-          const {text} = JSON.parse(raw);
-          if(text){
-            fullText += text;
-            content.innerHTML = formatAI(fullText);
-            const box = document.getElementById("chat-box");
-            if(box.scrollHeight - box.scrollTop - box.clientHeight < 200) scrollToBottom();
-          }
+          const {text: chunk} = JSON.parse(raw);
+          if(chunk) received += chunk;
         }catch(_){}
       }
     }
 
-    // Finalise stream row
-    const meta  = document.getElementById("stream-meta");
-    if(meta) meta.style.display = "flex";
-    const cpBtn = document.getElementById("stream-copy-btn");
-    if(cpBtn) cpBtn.setAttribute("onclick",`copyText(this,${JSON.stringify(fullText)})`);
-
-    // Save AI reply to history
-    const timeStr = fmtTime();
-    currentMsgs.push({role:"ai", content:fullText, time:timeStr});
-    saveChatMsgs(currentChatId, currentMsgs);
-    upsertConvMeta(currentChatId, null, sessionId);
-    renderSidebarList();
+    sseEnded = true;
+    // Edge case: typewriter already drained before SSE flag was set
+    if(!twTimer && displayed.length >= received.length) onTypingComplete();
 
   }catch(err){
+    if(twTimer){ clearInterval(twTimer); twTimer = null; }
+    sseEnded = true;
     hideTyping();
-    if(!streamRow) appendMsg("ai","⚠️ Connection error: "+err.message);
-  }finally{
-    clearTimeout(skelTimer);
-    document.getElementById("skeleton").style.display = "none";
-    document.getElementById("typing-dots").style.display = "";
-    isStreaming = false;
-    document.getElementById("send-btn").disabled = false;
-    document.getElementById("status-label").textContent = "Online · Ready";
-    scrollToBottom();
+    if(!streamRow) appendMsg("ai", "Something went wrong. Please try again.");
+    finalize();
   }
 }
 
