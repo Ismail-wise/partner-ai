@@ -312,7 +312,7 @@ When documents contain relevant content, cite them by name. If they don't cover 
 
     try {
       const model = genAI.getGenerativeModel({
-        model: "gemini-2.0-flash",
+        model: "gemini-2.5-flash",
         systemInstruction: fullSystemInstruction,
         generationConfig: {
           temperature: 0.5,

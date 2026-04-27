@@ -628,6 +628,134 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
   .input-area{padding:10px 14px 16px;}
   .hdr-badge{display:none;}
 }
+
+/* ══════════════════════════════════════════
+   EXTRA ANIMATIONS
+══════════════════════════════════════════ */
+
+/* Particle burst behind logo */
+.welcome-logo-wrap{position:relative;display:inline-flex;align-items:center;justify-content:center;}
+.welcome-logo-wrap::before,.welcome-logo-wrap::after{
+  content:"";position:absolute;border-radius:50%;pointer-events:none;
+}
+.welcome-logo-wrap::before{
+  width:120px;height:120px;
+  background:conic-gradient(from 0deg,rgba(34,197,94,.18),rgba(245,158,11,.14),rgba(34,197,94,.18));
+  animation:ringOrbit 6s linear infinite;
+}
+.welcome-logo-wrap::after{
+  width:148px;height:148px;
+  border:1.5px dashed rgba(245,158,11,.22);
+  animation:ringOrbit 14s linear infinite reverse;
+}
+@keyframes ringOrbit{to{transform:rotate(360deg)}}
+
+/* Glowing send button pulse */
+.send-btn:not(:disabled){
+  animation:sendGlow 3s ease-in-out infinite;
+}
+@keyframes sendGlow{
+  0%,100%{box-shadow:0 4px 16px rgba(22,163,74,.4),0 1px 0 rgba(255,255,255,.2) inset}
+  50%    {box-shadow:0 4px 28px rgba(22,163,74,.75),0 0 20px rgba(34,197,94,.4),0 1px 0 rgba(255,255,255,.2) inset}
+}
+
+/* Message bubble pop-in */
+.message-row{animation:msgPop .32s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes msgPop{
+  from{opacity:0;transform:translateY(14px) scale(.95)}
+  to  {opacity:1;transform:none}
+}
+
+/* Chip hover shimmer */
+.chip{overflow:hidden;}
+.chip::after{
+  content:"";position:absolute;top:0;left:-120%;width:60%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.45),transparent);
+  transform:skewX(-20deg);pointer-events:none;
+}
+.chip{position:relative;}
+.chip:hover::after{animation:chipShimmer .5s ease forwards;}
+@keyframes chipShimmer{to{left:140%}}
+
+/* Status dot enhanced pulse */
+@keyframes dotBlink{
+  0%  {opacity:1;transform:scale(1);box-shadow:0 0 8px #22c55e,0 0 0 0 rgba(34,197,94,.6)}
+  50% {opacity:.5;transform:scale(.65);box-shadow:0 0 4px #22c55e,0 0 0 5px rgba(34,197,94,0)}
+  100%{opacity:1;transform:scale(1);box-shadow:0 0 8px #22c55e,0 0 0 0 rgba(34,197,94,.6)}
+}
+
+/* Input row focus glow sweep */
+.input-row::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(90deg,transparent 0%,rgba(34,197,94,.06) 50%,transparent 100%);
+  background-size:200% 100%;opacity:0;transition:opacity .3s;
+}
+.input-row{position:relative;}
+.input-row:focus-within::after{opacity:1;animation:inputSweep 2s linear infinite;}
+@keyframes inputSweep{
+  0%  {background-position:200% 0}
+  100%{background-position:-200% 0}
+}
+
+/* Toast slide-in bounce */
+@keyframes toastIn{
+  from{opacity:0;transform:translateX(46px) scale(.88)}
+  65% {transform:translateX(-6px) scale(1.02)}
+  to  {opacity:1;transform:none}
+}
+
+/* Sidebar item hover slide */
+.sb-item{transition:all .2s cubic-bezier(.34,1.4,.64,1);}
+.sb-item:hover{transform:translateX(4px);}
+
+/* Header gradient shimmer on name */
+@keyframes nameGrad{
+  0%  {background-position:0%}
+  50% {background-position:100%}
+  100%{background-position:0%}
+}
+
+/* Scroll button bounce appear */
+.scroll-btn.visible{animation:scrollAppear .4s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes scrollAppear{
+  from{opacity:0;transform:scale(.5) translateY(12px)}
+  to  {opacity:1;transform:none}
+}
+
+/* AI bubble typing cursor during stream */
+#stream-content:not(:empty)::after{
+  content:"|";display:inline-block;
+  color:var(--g5);animation:cursorBlink .7s step-end infinite;
+  margin-left:2px;font-weight:300;
+}
+@keyframes cursorBlink{0%,100%{opacity:1}50%{opacity:0}}
+
+/* Badge shimmer */
+.hdr-badge{
+  position:relative;overflow:hidden;
+}
+.hdr-badge::after{
+  content:"";position:absolute;top:0;left:-100%;width:50%;height:100%;
+  background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);
+  animation:badgeShimmer 3s ease-in-out infinite;
+}
+@keyframes badgeShimmer{
+  0%,40%{left:-100%}
+  60%,100%{left:150%}
+}
+
+/* New chat button pulse outline */
+.sb-new-btn{position:relative;}
+.sb-new-btn::before{
+  content:"";position:absolute;inset:-2px;border-radius:inherit;
+  border:1px solid rgba(34,197,94,0);
+  transition:border-color .2s;
+  animation:newBtnPulse 2.5s ease-in-out infinite;
+}
+@keyframes newBtnPulse{
+  0%,100%{box-shadow:0 0 0 0 rgba(34,197,94,.3)}
+  50%    {box-shadow:0 0 0 5px rgba(34,197,94,0)}
+}
 </style>
 </head>
 <body>
@@ -671,7 +799,7 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
 
     <div class="hdr-info">
       <div class="hdr-name">Sayar Nyan Lin Aung's AI Chat</div>
-      <div class="hdr-sub">Partnership Business Intelligence · Gemini 2.0 Flash</div>
+      <div class="hdr-sub">Partnership Business Intelligence · Gemini 2.5 Flash</div>
       <div class="hdr-status">
         <div class="status-dot"></div>
         <span id="status-label">Online · Ready</span>
@@ -693,7 +821,9 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
   <!-- ── CHAT BOX ── -->
   <div class="chat-box" id="chat-box">
     <div class="welcome-screen" id="welcome">
-      <div class="welcome-logo">🎓</div>
+      <div class="welcome-logo-wrap">
+        <div class="welcome-logo">🎓</div>
+      </div>
       <h2>Partnership Business Intelligence</h2>
       <p class="welcome-desc">Your expert AI assistant for partnership law, agreements, capital structures, dispute resolution, and everything in between.</p>
       <div class="welcome-motto">"Without Rules, we all go back to the jungle."</div>
