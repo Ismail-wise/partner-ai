@@ -42,7 +42,7 @@ async function getEmbedding(text) {
     if (!text || typeof text !== "string") return null;
     const cleanText = text.replace(/\s+/g, " ").slice(0, 8000);
     if (!cleanText) return null;
-    const embeddingModel = genAI.getGenerativeModel({ model: "text-embedding-004" });
+    const embeddingModel = genAI.getGenerativeModel({ model: "gemini-embedding-001" });
     const result = await embeddingModel.embedContent(cleanText);
     return result.embedding.values || null;
   } catch (err) {
