@@ -2053,6 +2053,12 @@ async function sendMessage(text){
     if(meta) meta.style.display = "flex";
     const cpBtn = document.getElementById("stream-copy-btn");
     if(cpBtn) cpBtn.setAttribute("onclick", `copyText(this,${JSON.stringify(displayed)})`);
+    // Remove streaming IDs so the next message gets fresh elements (prevents
+    // second message from targeting first message's DOM nodes via getElementById)
+    ["stream-bubble","stream-content","stream-meta","stream-copy-btn"].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.removeAttribute("id");
+    });
     // persist to session history
     const timeStr = fmtTime();
     currentMsgs.push({role:"ai", content:displayed, time:timeStr});
@@ -2206,7 +2212,7 @@ async function clearCurrentChat(){
   if(currentChatId) deleteChatData(currentChatId);
   try{
     await fetch(API+"/clear-session",{
-      method:"POST",headers:{"Content-Type":"application/json"},
+      method:"POST",headers:authHeaders(),
       body:JSON.stringify({sessionId})
     });
   }catch(_){}
