@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PBR AI — Admin Panel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{min-height:100%;font-family:"Inter",system-ui,sans-serif;background:#030e06;color:#dcfce7;}
+
+/* ── TOKENS ── */
+:root{
+  --g4:#166534;--g5:#16a34a;--g6:#22c55e;--g7:#4ade80;--g8:#86efac;--g9:#bbf7d0;
+  --au5:#f59e0b;--au6:#fbbf24;--re4:#f87171;--re5:#ef4444;
+  --surf:#0a1a0d;--surf2:#0f2414;--surf3:#132b19;
+  --border:rgba(34,197,94,.14);--border2:rgba(34,197,94,.24);
+  --r-sm:8px;--r-md:14px;--r-lg:20px;
+  --sh:0 4px 24px rgba(0,0,0,.4);
+}
+
+body{display:flex;flex-direction:column;align-items:center;padding:0 16px 60px;
+  background:radial-gradient(ellipse 80% 60% at 20% 10%,rgba(34,197,94,.07),transparent 55%),
+             radial-gradient(ellipse 60% 50% at 80% 90%,rgba(22,163,74,.05),transparent 50%),
+             #030e06;}
+
+/* ── TOP BAR ── */
+.topbar{
+  width:100%;max-width:1100px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:20px 0 24px;border-bottom:1px solid var(--border);
+  margin-bottom:28px;
+}
+.topbar-brand{display:flex;align-items:center;gap:10px;}
+.topbar-icon{width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0c3a1e,#16a34a);
+  display:flex;align-items:center;justify-content:center;font-size:18px;
+  border:1.5px solid rgba(134,239,172,.3);box-shadow:0 0 16px rgba(22,163,74,.25);}
+.topbar-title{font-size:16px;font-weight:800;
+  background:linear-gradient(90deg,#bbf7d0,#86efac,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.topbar-sub{font-size:10px;color:rgba(134,239,172,.45);margin-top:2px;}
+
+/* ── SECRET INPUT ── */
+.secret-row{display:flex;gap:8px;align-items:center;}
+.secret-input{
+  background:var(--surf2);border:1px solid var(--border2);border-radius:var(--r-sm);
+  color:#dcfce7;font-family:inherit;font-size:12px;padding:7px 12px;width:200px;outline:none;
+}
+.secret-input:focus{border-color:var(--g6);}
+.load-btn{
+  padding:7px 16px;border-radius:var(--r-sm);border:none;cursor:pointer;
+  background:linear-gradient(135deg,#134e2a,#16a34a);color:#fff;font-size:12px;font-weight:700;
+  transition:all .2s;
+}
+.load-btn:hover{opacity:.88;transform:translateY(-1px);}
+
+/* ── STATS BAR ── */
+.stats-bar{
+  width:100%;max-width:1100px;
+  display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px;
+}
+.stat-card{
+  background:var(--surf);border:1px solid var(--border);border-radius:var(--r-md);
+  padding:16px 20px;display:flex;flex-direction:column;gap:4px;
+}
+.stat-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:rgba(134,239,172,.45);}
+.stat-value{font-size:28px;font-weight:900;line-height:1;}
+.stat-value.green{color:var(--g7);}
+.stat-value.gold {color:var(--au6);}
+.stat-value.blue {color:#7dd3fc;}
+
+/* ── TABLE WRAPPER ── */
+.table-wrap{width:100%;max-width:1100px;}
+.table-header{
+  display:flex;align-items:center;justify-content:space-between;
+  margin-bottom:14px;
+}
+.table-title{font-size:14px;font-weight:700;color:var(--g8);}
+.search-input{
+  background:var(--surf2);border:1px solid var(--border);border-radius:var(--r-sm);
+  color:#dcfce7;font-family:inherit;font-size:12px;padding:6px 12px;width:220px;outline:none;
+}
+.search-input:focus{border-color:var(--g6);}
+
+/* ── TABLE ── */
+.tbl{width:100%;border-collapse:collapse;}
+.tbl th{
+  text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+  color:rgba(134,239,172,.45);padding:10px 14px;border-bottom:1px solid var(--border2);
+}
+.tbl td{
+  padding:12px 14px;border-bottom:1px solid var(--border);
+  font-size:12.5px;color:rgba(220,252,231,.8);vertical-align:middle;
+}
+.tbl tr:hover td{background:rgba(34,197,94,.04);}
+
+.badge{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:10px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+  padding:3px 9px;border-radius:20px;
+}
+.badge-free   {background:rgba(134,239,172,.1);border:1px solid rgba(134,239,172,.2);color:#86efac;}
+.badge-premium{background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.3);color:#fbbf24;}
+
+.progress-bar{
+  width:100px;height:5px;background:rgba(34,197,94,.12);border-radius:3px;overflow:hidden;
+}
+.progress-fill{height:100%;border-radius:3px;background:linear-gradient(90deg,var(--g5),var(--g6));
+  transition:width .4s ease;}
+.progress-fill.near{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
+.progress-fill.full{background:linear-gradient(90deg,#ef4444,#f87171);}
+
+/* ── ACTION BUTTONS ── */
+.action-wrap{display:flex;gap:6px;flex-wrap:wrap;}
+.act-btn{
+  padding:5px 11px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;
+  border:1px solid;transition:all .18s;white-space:nowrap;
+}
+.act-btn.upgrade  {border-color:rgba(245,158,11,.4);background:rgba(245,158,11,.1);color:var(--au6);}
+.act-btn.upgrade:hover{background:rgba(245,158,11,.2);}
+.act-btn.downgrade{border-color:rgba(134,239,172,.3);background:rgba(134,239,172,.07);color:var(--g8);}
+.act-btn.downgrade:hover{background:rgba(134,239,172,.14);}
+.act-btn.reset    {border-color:rgba(96,165,250,.3);background:rgba(96,165,250,.07);color:#93c5fd;}
+.act-btn.reset:hover{background:rgba(96,165,250,.14);}
+.act-btn.del      {border-color:rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#fca5a5;}
+.act-btn.del:hover{background:rgba(239,68,68,.18);}
+
+/* ── EMPTY / LOADING ── */
+.tbl-empty{text-align:center;padding:40px;color:rgba(134,239,172,.3);font-size:13px;}
+
+/* ── TOAST ── */
+#toast{
+  position:fixed;bottom:28px;right:28px;z-index:99;
+  background:var(--surf2);border:1px solid var(--border2);border-radius:var(--r-md);
+  padding:12px 18px;font-size:13px;color:#dcfce7;box-shadow:var(--sh);
+  display:none;align-items:center;gap:8px;max-width:320px;
+}
+#toast.show{display:flex;animation:toastIn .3s cubic-bezier(.34,1.56,.64,1) both;}
+@keyframes toastIn{from{opacity:0;transform:translateY(16px) scale(.9)}to{opacity:1;transform:none}}
+
+/* ── MODAL ── */
+.modal-overlay{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.6);backdrop-filter:blur(8px);
+  display:none;align-items:center;justify-content:center;}
+.modal-overlay.open{display:flex;}
+.modal-box{
+  background:var(--surf);border:1px solid var(--border2);border-radius:var(--r-lg);
+  padding:28px 32px;max-width:380px;width:92%;box-shadow:0 32px 80px rgba(0,0,0,.5);
+  animation:mPop .3s cubic-bezier(.34,1.56,.64,1) both;
+}
+@keyframes mPop{from{opacity:0;transform:scale(.88) translateY(16px)}to{opacity:1;transform:none}}
+.modal-title{font-size:15px;font-weight:800;color:#dcfce7;margin-bottom:6px;}
+.modal-sub  {font-size:12px;color:rgba(134,239,172,.5);margin-bottom:18px;}
+.modal-input{
+  width:100%;background:var(--surf2);border:1px solid var(--border2);border-radius:var(--r-sm);
+  color:#dcfce7;font-family:inherit;font-size:13px;padding:10px 14px;outline:none;margin-bottom:14px;
+}
+.modal-input:focus{border-color:var(--g6);}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;}
+.modal-btn{padding:8px 20px;border-radius:var(--r-sm);font-size:12.5px;font-weight:700;cursor:pointer;border:none;}
+.modal-btn.cancel{background:var(--surf2);color:rgba(134,239,172,.7);border:1px solid var(--border2);}
+.modal-btn.confirm{background:linear-gradient(135deg,#134e2a,#16a34a);color:#fff;}
+.modal-btn.confirm:hover{opacity:.9;}
+
+/* ── RESPONSIVE ── */
+@media(max-width:768px){
+  .stats-bar{grid-template-columns:1fr 1fr;}
+  .tbl th:nth-child(3),.tbl td:nth-child(3),.tbl th:nth-child(4),.tbl td:nth-child(4){display:none;}
+}
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-brand">
+    <div class="topbar-icon">🎓</div>
+    <div>
+      <div class="topbar-title">PBR AI — Admin Panel</div>
+      <div class="topbar-sub">User management · Sayar Nyan Lin Aung</div>
+    </div>
+  </div>
+  <div class="secret-row">
+    <input class="secret-input" type="password" id="secret-input" placeholder="Admin secret…" onkeydown="if(event.key==='Enter') loadUsers()">
+    <button class="load-btn" onclick="loadUsers()">Load</button>
+  </div>
+</div>
+
+<!-- STATS -->
+<div class="stats-bar" id="stats-bar" style="display:none">
+  <div class="stat-card"><div class="stat-label">Total Users</div><div class="stat-value green" id="s-total">—</div></div>
+  <div class="stat-card"><div class="stat-label">Free Users</div><div class="stat-value blue" id="s-free">—</div></div>
+  <div class="stat-card"><div class="stat-label">Premium Users</div><div class="stat-value gold" id="s-premium">—</div></div>
+</div>
+
+<!-- TABLE -->
+<div class="table-wrap">
+  <div class="table-header">
+    <div class="table-title" id="table-title">Enter admin secret above to load users</div>
+    <input class="search-input" type="text" id="search-input" placeholder="Search by email…" oninput="renderTable()" style="display:none">
+  </div>
+  <table class="tbl" id="main-tbl">
+    <thead>
+      <tr>
+        <th>Email</th>
+        <th>Role</th>
+        <th>Messages Today</th>
+        <th>Joined</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="tbl-body">
+      <tr><td colspan="5" class="tbl-empty">Loading…</td></tr>
+    </tbody>
+  </table>
+</div>
+
+<!-- RESET PASSWORD MODAL -->
+<div class="modal-overlay" id="reset-modal">
+  <div class="modal-box">
+    <div class="modal-title">Reset Password</div>
+    <div class="modal-sub" id="reset-modal-sub">Set a new password for this user.</div>
+    <input class="modal-input" type="password" id="new-password-input" placeholder="New password (min 6 chars)">
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal('reset-modal')">Cancel</button>
+      <button class="modal-btn confirm" onclick="confirmResetPassword()">Reset</button>
+    </div>
+  </div>
+</div>
+
+<!-- DELETE CONFIRM MODAL -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal-box">
+    <div class="modal-title">Delete User?</div>
+    <div class="modal-sub" id="delete-modal-sub">This cannot be undone.</div>
+    <div class="modal-actions">
+      <button class="modal-btn cancel" onclick="closeModal('delete-modal')">Cancel</button>
+      <button class="modal-btn confirm" style="background:linear-gradient(135deg,#7f1d1d,#ef4444);" onclick="confirmDelete()">Delete</button>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<script>
+const API = "";
+let allUsers   = [];
+let actionUserId = null;
+let actionUserEmail = null;
+
+function getSecret(){
+  return document.getElementById("secret-input").value.trim();
+}
+
+async function loadUsers(){
+  const secret = getSecret();
+  if(!secret){ toast("Enter admin secret first","❌"); return; }
+  try{
+    const res  = await fetch(API+"/admin/users", { headers:{"x-admin-secret": secret} });
+    const data = await res.json();
+    if(!data.success){ toast(data.error || "Failed to load","❌"); return; }
+    allUsers = data.users;
+    document.getElementById("s-total").textContent   = data.total;
+    document.getElementById("s-free").textContent    = data.free;
+    document.getElementById("s-premium").textContent = data.premium;
+    document.getElementById("stats-bar").style.display  = "";
+    document.getElementById("search-input").style.display = "";
+    document.getElementById("table-title").textContent = `${data.total} user${data.total!==1?"s":""}`;
+    renderTable();
+    toast(`Loaded ${data.total} users`,"✅");
+  }catch(e){ toast("Network error","❌"); }
+}
+
+function renderTable(){
+  const q    = document.getElementById("search-input").value.toLowerCase();
+  const list = allUsers.filter(u => u.email.toLowerCase().includes(q));
+  const body = document.getElementById("tbl-body");
+  if(!list.length){
+    body.innerHTML = `<tr><td colspan="5" class="tbl-empty">No users found.</td></tr>`;
+    return;
+  }
+  body.innerHTML = list.map(u => {
+    const cap      = 10;
+    const pct      = Math.min(100, (u.dailyCount / cap) * 100);
+    const barClass = pct >= 100 ? "full" : pct >= 70 ? "near" : "";
+    const joined   = u.createdAt ? new Date(u.createdAt).toLocaleDateString([],{month:"short",day:"numeric",year:"2-digit"}) : "—";
+    const badge    = u.role === "premium"
+      ? `<span class="badge badge-premium">⭐ Premium</span>`
+      : `<span class="badge badge-free">Free</span>`;
+    const upgradeBtn   = u.role === "free"    ? `<button class="act-btn upgrade"   onclick="setRole('${u.id}','${u.email}','premium')">⭐ Upgrade</button>` : "";
+    const downgradeBtn = u.role === "premium" ? `<button class="act-btn downgrade" onclick="setRole('${u.id}','${u.email}','free')">↓ Downgrade</button>` : "";
+    return `<tr>
+      <td style="font-weight:600;color:#dcfce7;">${xss(u.email)}</td>
+      <td>${badge}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:11px;color:rgba(134,239,172,.7);">${u.dailyCount}/${cap}</span>
+          ${u.role==="free" ? `<div class="progress-bar"><div class="progress-fill ${barClass}" style="width:${pct}%"></div></div>` : `<span style="font-size:10px;color:rgba(245,158,11,.5);">Unlimited</span>`}
+        </div>
+      </td>
+      <td style="color:rgba(134,239,172,.5);font-size:11.5px;">${joined}</td>
+      <td><div class="action-wrap">
+        ${upgradeBtn}${downgradeBtn}
+        <button class="act-btn reset" onclick="openResetModal('${u.id}','${u.email}')">🔑 Reset PW</button>
+        <button class="act-btn del"   onclick="openDeleteModal('${u.id}','${u.email}')">🗑 Delete</button>
+      </div></td>
+    </tr>`;
+  }).join("");
+}
+
+async function setRole(id, email, role){
+  try{
+    const res  = await fetch(API+`/admin/users/${id}/role`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-admin-secret":getSecret()},
+      body: JSON.stringify({ role })
+    });
+    const data = await res.json();
+    if(data.success){
+      const u = allUsers.find(u=>u.id===id);
+      if(u) u.role = role;
+      renderTable();
+      toast(`${email} → ${role}`,"✅");
+    } else { toast(data.error||"Failed","❌"); }
+  }catch(e){ toast("Network error","❌"); }
+}
+
+function openResetModal(id, email){
+  actionUserId    = id;
+  actionUserEmail = email;
+  document.getElementById("reset-modal-sub").textContent = `Set new password for ${email}`;
+  document.getElementById("new-password-input").value = "";
+  openModal("reset-modal");
+}
+
+async function confirmResetPassword(){
+  const pw = document.getElementById("new-password-input").value;
+  if(!pw || pw.length < 6){ toast("Password must be at least 6 chars","❌"); return; }
+  try{
+    const res  = await fetch(API+`/admin/users/${actionUserId}/reset-password`, {
+      method:"POST",
+      headers:{"Content-Type":"application/json","x-admin-secret":getSecret()},
+      body: JSON.stringify({ newPassword: pw })
+    });
+    const data = await res.json();
+    if(data.success){ toast(`Password reset for ${actionUserEmail}`,"✅"); closeModal("reset-modal"); }
+    else { toast(data.error||"Failed","❌"); }
+  }catch(e){ toast("Network error","❌"); }
+}
+
+function openDeleteModal(id, email){
+  actionUserId    = id;
+  actionUserEmail = email;
+  document.getElementById("delete-modal-sub").textContent = `Delete "${email}" permanently?`;
+  openModal("delete-modal");
+}
+
+async function confirmDelete(){
+  try{
+    const res  = await fetch(API+`/admin/users/${actionUserId}`, {
+      method:"DELETE",
+      headers:{"x-admin-secret":getSecret()}
+    });
+    const data = await res.json();
+    if(data.success){
+      allUsers = allUsers.filter(u=>u.id!==actionUserId);
+      document.getElementById("s-total").textContent = allUsers.length;
+      document.getElementById("s-free").textContent    = allUsers.filter(u=>u.role==="free").length;
+      document.getElementById("s-premium").textContent = allUsers.filter(u=>u.role==="premium").length;
+      renderTable();
+      toast(`Deleted ${actionUserEmail}`,"✅");
+      closeModal("delete-modal");
+    } else { toast(data.error||"Failed","❌"); }
+  }catch(e){ toast("Network error","❌"); }
+}
+
+function openModal(id){ document.getElementById(id).classList.add("open"); }
+function closeModal(id){ document.getElementById(id).classList.remove("open"); }
+
+let toastTimer;
+function toast(msg, icon="ℹ️"){
+  const el = document.getElementById("toast");
+  el.innerHTML = `<span>${icon}</span><span>${xss(msg)}</span>`;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(()=>{ el.classList.remove("show"); }, 3200);
+}
+
+function xss(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+// Close modals on backdrop click
+document.querySelectorAll(".modal-overlay").forEach(el=>{
+  el.addEventListener("click", e=>{ if(e.target===el) el.classList.remove("open"); });
+});
+</script>
+</body>
+</html>

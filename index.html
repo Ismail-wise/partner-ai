@@ -1021,6 +1021,176 @@ html[data-theme="dark"] .orb{opacity:.18;}
 .sb-item{transition:all .22s cubic-bezier(.34,1.4,.64,1);}
 .sb-item:hover{transform:translateX(6px) scale(1.01);}
 
+
+/* ══════════════════════════════════════════
+   AUTH MODAL
+══════════════════════════════════════════ */
+.auth-overlay{
+  position:fixed;inset:0;z-index:200;
+  background:rgba(0,0,0,.72);backdrop-filter:blur(14px);
+  display:flex;align-items:center;justify-content:center;
+  animation:authFadeIn .35s ease both;
+}
+@keyframes authFadeIn{from{opacity:0}to{opacity:1}}
+.auth-box{
+  background:linear-gradient(145deg,#030e06,#071408,#0c1f10);
+  border:1px solid rgba(34,197,94,.22);border-radius:24px;
+  padding:36px 36px 32px;width:92%;max-width:420px;
+  box-shadow:0 40px 100px rgba(0,0,0,.7),0 0 0 1px rgba(34,197,94,.1),
+             0 0 60px rgba(22,163,74,.08);
+  animation:authBoxPop .42s cubic-bezier(.34,1.56,.64,1) both;
+  position:relative;overflow:hidden;
+}
+.auth-box::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 0%,rgba(34,197,94,.1),transparent 60%);
+}
+@keyframes authBoxPop{from{opacity:0;transform:scale(.88) translateY(24px)}to{opacity:1;transform:none}}
+.auth-logo{
+  width:56px;height:56px;border-radius:16px;margin:0 auto 18px;
+  background:linear-gradient(145deg,#0c3a1e,#16a34a,#4ade80);
+  display:flex;align-items:center;justify-content:center;font-size:26px;
+  border:2px solid rgba(134,239,172,.28);
+  box-shadow:0 0 0 6px rgba(34,197,94,.06),0 0 32px rgba(22,163,74,.28);
+  animation:logoFloat 4s ease-in-out infinite;
+}
+.auth-title{font-size:20px;font-weight:900;text-align:center;margin-bottom:4px;
+  background:linear-gradient(90deg,#dcfce7,#86efac,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.auth-sub{font-size:12px;text-align:center;color:rgba(134,239,172,.45);margin-bottom:24px;}
+
+.auth-tabs{display:flex;background:rgba(34,197,94,.07);border-radius:12px;padding:3px;margin-bottom:22px;}
+.auth-tab{
+  flex:1;padding:8px;border-radius:9px;font-size:12.5px;font-weight:700;
+  border:none;background:none;color:rgba(134,239,172,.5);cursor:pointer;transition:all .22s;
+}
+.auth-tab.active{background:rgba(34,197,94,.16);color:#86efac;box-shadow:0 2px 8px rgba(0,0,0,.3);}
+
+.auth-field{
+  display:flex;flex-direction:column;gap:6px;margin-bottom:14px;
+}
+.auth-label{font-size:11px;font-weight:700;color:rgba(134,239,172,.55);letter-spacing:.4px;}
+.auth-input{
+  background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.18);
+  border-radius:10px;color:#dcfce7;font-family:inherit;font-size:13.5px;
+  padding:11px 14px;outline:none;transition:border-color .2s,box-shadow .2s;
+}
+.auth-input:focus{border-color:rgba(34,197,94,.5);box-shadow:0 0 0 3px rgba(34,197,94,.1);}
+.auth-input::placeholder{color:rgba(134,239,172,.28);}
+
+.auth-remember{display:flex;align-items:center;gap:8px;margin-bottom:18px;cursor:pointer;
+  font-size:12px;color:rgba(134,239,172,.5);}
+.auth-remember input{accent-color:var(--g5);width:14px;height:14px;cursor:pointer;}
+
+.auth-submit{
+  width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#134e2a,#16a34a,#22c55e);
+  color:#fff;font-family:inherit;font-size:14px;font-weight:800;
+  box-shadow:0 6px 24px rgba(22,163,74,.38);
+  transition:all .22s cubic-bezier(.34,1.56,.64,1);position:relative;overflow:hidden;
+}
+.auth-submit:hover{transform:translateY(-2px);box-shadow:0 10px 32px rgba(22,163,74,.55);}
+.auth-submit:active{transform:translateY(1px);}
+.auth-submit:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
+.auth-error{
+  background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.25);
+  border-radius:8px;padding:9px 12px;font-size:12px;color:#fca5a5;
+  margin-bottom:14px;display:none;
+}
+.auth-error.show{display:block;animation:authFadeIn .2s ease both;}
+
+/* ── USER BADGE IN HEADER ── */
+.user-badge{
+  display:flex;align-items:center;gap:7px;
+  background:rgba(34,197,94,.07);border:1px solid rgba(34,197,94,.16);
+  border-radius:20px;padding:5px 11px 5px 7px;cursor:default;
+  transition:all .22s;
+}
+.user-badge:hover{background:rgba(34,197,94,.12);border-color:rgba(34,197,94,.28);}
+.user-avatar{
+  width:22px;height:22px;border-radius:50%;
+  background:linear-gradient(135deg,#134e2a,#22c55e);
+  display:flex;align-items:center;justify-content:center;font-size:11px;flex-shrink:0;
+}
+.user-email-short{font-size:11px;font-weight:600;color:rgba(187,247,208,.8);max-width:100px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.user-role-pill{
+  font-size:9px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;
+  padding:2px 6px;border-radius:8px;flex-shrink:0;
+}
+.user-role-pill.free   {background:rgba(134,239,172,.1);color:rgba(134,239,172,.7);}
+.user-role-pill.premium{background:rgba(245,158,11,.15);color:#fbbf24;border:1px solid rgba(245,158,11,.3);}
+
+.logout-btn{
+  width:28px;height:28px;border-radius:8px;border:1px solid rgba(239,68,68,.2);
+  background:rgba(239,68,68,.06);color:rgba(248,113,113,.6);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;transition:all .18s;flex-shrink:0;
+}
+.logout-btn:hover{background:rgba(239,68,68,.14);color:#fca5a5;border-color:rgba(239,68,68,.35);}
+.logout-btn svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;}
+
+/* ── MESSAGE COUNTER (free users) ── */
+.msg-counter{
+  display:flex;align-items:center;gap:8px;
+  padding:7px 14px;border-radius:10px;margin-bottom:8px;
+  background:rgba(34,197,94,.05);border:1px solid rgba(34,197,94,.12);
+  font-size:11.5px;color:rgba(134,239,172,.6);
+  transition:all .3s;
+}
+.msg-counter.warn{background:rgba(245,158,11,.07);border-color:rgba(245,158,11,.22);color:var(--au6);}
+.msg-counter.full{background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.22);color:#fca5a5;}
+.counter-bar{flex:1;height:4px;background:rgba(34,197,94,.12);border-radius:3px;overflow:hidden;}
+.counter-fill{height:100%;border-radius:3px;transition:width .5s cubic-bezier(.34,1.56,.64,1),background .3s;
+  background:linear-gradient(90deg,var(--g5),var(--g6));}
+.counter-fill.warn{background:linear-gradient(90deg,#f59e0b,#fbbf24);}
+.counter-fill.full{background:linear-gradient(90deg,#ef4444,#f87171);}
+
+/* ── UPGRADE MODAL ── */
+.upgrade-overlay{
+  position:fixed;inset:0;z-index:180;
+  background:rgba(0,0,0,.65);backdrop-filter:blur(12px);
+  display:none;align-items:center;justify-content:center;
+}
+.upgrade-overlay.open{display:flex;animation:authFadeIn .3s ease both;}
+.upgrade-box{
+  background:linear-gradient(145deg,#030e06,#071408);
+  border:1px solid rgba(245,158,11,.25);border-radius:24px;
+  padding:36px;width:92%;max-width:400px;
+  box-shadow:0 40px 100px rgba(0,0,0,.7),0 0 60px rgba(245,158,11,.06);
+  animation:authBoxPop .4s cubic-bezier(.34,1.56,.64,1) both;
+}
+.upgrade-icon{font-size:40px;text-align:center;margin-bottom:14px;}
+.upgrade-title{font-size:18px;font-weight:900;text-align:center;margin-bottom:6px;
+  background:linear-gradient(90deg,#fbbf24,#f59e0b,#fcd34d);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;}
+.upgrade-sub{font-size:12.5px;text-align:center;color:rgba(134,239,172,.45);margin-bottom:22px;line-height:1.6;}
+.upgrade-perks{list-style:none;margin-bottom:22px;display:flex;flex-direction:column;gap:8px;}
+.upgrade-perks li{display:flex;align-items:center;gap:8px;font-size:12.5px;color:rgba(220,252,231,.75);}
+.upgrade-perks li::before{content:"✦";color:#fbbf24;font-size:10px;flex-shrink:0;}
+.upgrade-code-row{display:flex;gap:8px;margin-bottom:8px;}
+.upgrade-code-input{
+  flex:1;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.22);
+  border-radius:10px;color:#dcfce7;font-family:inherit;font-size:13px;
+  padding:11px 14px;outline:none;transition:border-color .2s;
+}
+.upgrade-code-input:focus{border-color:rgba(245,158,11,.5);}
+.upgrade-code-input::placeholder{color:rgba(245,158,11,.3);}
+.upgrade-submit{
+  padding:11px 20px;border-radius:10px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#92400e,#f59e0b,#fbbf24);
+  color:#1a0a00;font-family:inherit;font-size:13px;font-weight:800;
+  transition:all .2s;white-space:nowrap;
+}
+.upgrade-submit:hover{transform:translateY(-1px);opacity:.9;}
+.upgrade-error{font-size:11.5px;color:#fca5a5;min-height:16px;text-align:center;}
+.upgrade-close{
+  width:100%;margin-top:12px;padding:9px;border-radius:10px;
+  border:1px solid rgba(34,197,94,.18);background:none;color:rgba(134,239,172,.45);
+  font-family:inherit;font-size:12px;cursor:pointer;transition:all .2s;
+}
+.upgrade-close:hover{color:#86efac;border-color:rgba(34,197,94,.3);}
+
 </style>
 </head>
 <body>
@@ -1075,7 +1245,18 @@ html[data-theme="dark"] .orb{opacity:.18;}
       </div>
     </div>
 
-    <div class="hdr-badge">PBR AI</div>
+    <div class="hdr-badge" id="hdr-badge-static">PBR AI</div>
+    <!-- Injected by JS when logged in -->
+    <div id="user-badge-wrap" style="display:none;align-items:center;gap:7px;">
+      <div class="user-badge">
+        <div class="user-avatar">👤</div>
+        <span class="user-email-short" id="hdr-email">—</span>
+        <span class="user-role-pill" id="hdr-role-pill">Free</span>
+      </div>
+      <button class="logout-btn" onclick="logout()" title="Log out">
+        <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+      </button>
+    </div>
 
     <div class="hdr-actions">
       <button class="icon-btn" id="theme-btn" onclick="toggleTheme()" title="Toggle theme">
@@ -1152,6 +1333,12 @@ html[data-theme="dark"] .orb{opacity:.18;}
         <svg viewBox="0 0 24 24"><path d="M22 2L11 13M22 2L15 22l-4-9-9-4 20-7z"/></svg>
       </button>
     </div>
+    <div id="msg-counter-wrap" style="display:none">
+      <div class="msg-counter" id="msg-counter">
+        <span id="counter-text">0 / 10 messages today</span>
+        <div class="counter-bar"><div class="counter-fill" id="counter-fill" style="width:0%"></div></div>
+      </div>
+    </div>
     <div class="input-footer">
       <span class="input-hint">Enter to send · Shift+Enter for new line · EN or မြန်မာ welcome</span>
       <span class="char-count" id="char-count">0</span>
@@ -1180,6 +1367,237 @@ html[data-theme="dark"] .orb{opacity:.18;}
 //  CONFIG
 // ══════════════════════════════════════════════
 const API = "";
+
+// ══════════════════════════════════════════════
+//  AUTH STATE
+// ══════════════════════════════════════════════
+let currentUser  = null;  // { id, email, role, dailyCount, dailyCap }
+let authToken    = null;
+
+function getStoredToken(){
+  return localStorage.getItem("pbr_token") || sessionStorage.getItem("pbr_token");
+}
+function storeToken(token, remember){
+  if(remember){ localStorage.setItem("pbr_token", token); sessionStorage.removeItem("pbr_token"); }
+  else         { sessionStorage.setItem("pbr_token", token); localStorage.removeItem("pbr_token"); }
+}
+function clearToken(){
+  localStorage.removeItem("pbr_token");
+  sessionStorage.removeItem("pbr_token");
+}
+function authHeaders(){
+  return authToken ? { "Content-Type":"application/json", "Authorization":"Bearer "+authToken } : { "Content-Type":"application/json" };
+}
+
+// ── SHOW / HIDE AUTH MODAL ────────────────────────────────────────
+function showAuthModal(){
+  const el = document.getElementById("auth-overlay");
+  el.style.display = "flex";
+  setTimeout(()=>document.getElementById("auth-email").focus(), 100);
+}
+function hideAuthModal(){
+  document.getElementById("auth-overlay").style.display = "none";
+}
+
+// ── SWITCH TAB ────────────────────────────────────────────────────
+function switchTab(tab){
+  const isLogin = tab === "login";
+  document.getElementById("tab-login").classList.toggle("active", isLogin);
+  document.getElementById("tab-register").classList.toggle("active", !isLogin);
+  document.getElementById("auth-submit-btn").textContent = isLogin ? "Log In" : "Create Account";
+  document.getElementById("auth-error").classList.remove("show");
+  document.getElementById("auth-error").textContent = "";
+  document.getElementById("auth-email").focus();
+}
+
+// ── SUBMIT AUTH ───────────────────────────────────────────────────
+async function submitAuth(){
+  const email    = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-password").value;
+  const remember = document.getElementById("auth-remember").checked;
+  const isLogin  = document.getElementById("tab-login").classList.contains("active");
+  const errEl    = document.getElementById("auth-error");
+  const btn      = document.getElementById("auth-submit-btn");
+
+  errEl.classList.remove("show");
+  if(!email || !password){ showAuthError("Please enter your email and password."); return; }
+
+  btn.disabled    = true;
+  btn.textContent = isLogin ? "Logging in…" : "Creating account…";
+
+  try{
+    const endpoint = isLogin ? "/auth/login" : "/auth/register";
+    const body     = isLogin
+      ? { email, password, rememberMe: remember }
+      : { email, password };
+    const res  = await fetch(API + endpoint, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body) });
+    const data = await res.json();
+
+    if(data.success){
+      authToken   = data.token;
+      currentUser = data.user;
+      storeToken(data.token, remember);
+      hideAuthModal();
+      onAuthSuccess();
+    } else {
+      showAuthError(data.error || "Something went wrong.");
+    }
+  }catch(_){
+    showAuthError("Connection failed. Is the server running?");
+  }finally{
+    btn.disabled    = false;
+    btn.textContent = isLogin ? "Log In" : "Create Account";
+  }
+}
+
+function showAuthError(msg){
+  const el = document.getElementById("auth-error");
+  el.textContent = msg;
+  el.classList.add("show");
+}
+
+// ── ON AUTH SUCCESS ───────────────────────────────────────────────
+function onAuthSuccess(){
+  // Show user badge
+  document.getElementById("hdr-badge-static").style.display = "none";
+  const wrap = document.getElementById("user-badge-wrap");
+  wrap.style.display = "flex";
+  document.getElementById("hdr-email").textContent = currentUser.email.split("@")[0];
+  const pill = document.getElementById("hdr-role-pill");
+  pill.textContent = currentUser.role === "premium" ? "⭐ Premium" : "Free";
+  pill.className   = "user-role-pill " + currentUser.role;
+
+  // Show / update counter
+  updateCounter(currentUser.dailyCount, currentUser.dailyCap, currentUser.role);
+
+  toast("Welcome back, " + currentUser.email.split("@")[0] + "!", "success");
+}
+
+// ── UPDATE COUNTER ────────────────────────────────────────────────
+function updateCounter(count, cap, role){
+  const wrap = document.getElementById("msg-counter-wrap");
+  const el   = document.getElementById("msg-counter");
+  const txt  = document.getElementById("counter-text");
+  const fill = document.getElementById("counter-fill");
+
+  if(role === "premium"){
+    wrap.style.display = "none";
+    return;
+  }
+
+  wrap.style.display = "block";
+  const remaining = Math.max(0, cap - count);
+  const pct       = Math.min(100, (count / cap) * 100);
+  const isFull    = count >= cap;
+  const isWarn    = pct >= 70;
+
+  txt.textContent  = isFull
+    ? "Daily limit reached — upgrade or come back tomorrow"
+    : remaining + " of " + cap + " messages remaining today";
+
+  el.className  = "msg-counter" + (isFull ? " full" : isWarn ? " warn" : "");
+  fill.className = "counter-fill" + (isFull ? " full" : isWarn ? " warn" : "");
+  fill.style.width = pct + "%";
+
+  // Lock / unlock input
+  const input   = document.getElementById("msg-input");
+  const sendBtn = document.getElementById("send-btn");
+  if(isFull){
+    input.disabled   = true;
+    sendBtn.disabled = true;
+    input.placeholder = "Daily limit reached — upgrade to continue…";
+  } else {
+    input.disabled   = false;
+    sendBtn.disabled = false;
+    input.placeholder = "Ask anything in English or မြန်မာဘာသာ…";
+  }
+}
+
+// ── LOGOUT ────────────────────────────────────────────────────────
+function logout(){
+  clearToken();
+  authToken   = null;
+  currentUser = null;
+  sessionId   = "";
+  // Reset UI
+  document.getElementById("hdr-badge-static").style.display = "";
+  document.getElementById("user-badge-wrap").style.display  = "none";
+  document.getElementById("msg-counter-wrap").style.display = "none";
+  const input = document.getElementById("msg-input");
+  input.disabled   = false;
+  input.placeholder = "Ask anything in English or မြန်မာဘာသာ…";
+  document.getElementById("send-btn").disabled = false;
+  // Clear chat and show auth
+  startFreshConv();
+  showAuthModal();
+  toast("Logged out","success");
+}
+
+// ── UPGRADE FLOW ──────────────────────────────────────────────────
+function showUpgrade(){
+  document.getElementById("limit-cap-display").textContent = currentUser?.dailyCap || 10;
+  document.getElementById("upgrade-error").textContent = "";
+  document.getElementById("upgrade-code-input").value  = "";
+  document.getElementById("upgrade-overlay").classList.add("open");
+  setTimeout(()=>document.getElementById("upgrade-code-input").focus(), 150);
+}
+function closeUpgrade(){
+  document.getElementById("upgrade-overlay").classList.remove("open");
+}
+async function submitUpgrade(){
+  const code  = document.getElementById("upgrade-code-input").value.trim();
+  const errEl = document.getElementById("upgrade-error");
+  if(!code){ errEl.textContent = "Please enter a code."; return; }
+  errEl.textContent = "";
+  try{
+    const res  = await fetch(API+"/auth/upgrade", {
+      method:"POST",
+      headers: authHeaders(),
+      body: JSON.stringify({ code })
+    });
+    const data = await res.json();
+    if(data.success){
+      if(data.token){ authToken = data.token; storeToken(data.token, !!localStorage.getItem("pbr_token")); }
+      currentUser = data.user || { ...currentUser, role:"premium" };
+      closeUpgrade();
+      // Update badge
+      const pill = document.getElementById("hdr-role-pill");
+      pill.textContent = "⭐ Premium";
+      pill.className   = "user-role-pill premium";
+      updateCounter(0, 10, "premium");
+      // Re-enable input
+      const input = document.getElementById("msg-input");
+      input.disabled   = false;
+      input.placeholder = "Ask anything in English or မြန်မာဘာသာ…";
+      document.getElementById("send-btn").disabled = false;
+      toast("🎉 Welcome to Premium — unlimited access!", "success");
+    } else {
+      errEl.textContent = data.error || "Invalid code.";
+    }
+  }catch(_){ errEl.textContent = "Connection error."; }
+}
+
+// ── INIT AUTH ─────────────────────────────────────────────────────
+async function initAuth(){
+  const stored = getStoredToken();
+  if(!stored){ showAuthModal(); return; }
+  try{
+    const res  = await fetch(API+"/auth/me", { headers:{"Authorization":"Bearer "+stored} });
+    const data = await res.json();
+    if(data.success){
+      authToken   = stored;
+      currentUser = data.user;
+      onAuthSuccess();
+    } else {
+      clearToken();
+      showAuthModal();
+    }
+  }catch(_){
+    // Server unreachable — show auth modal
+    showAuthModal();
+  }
+}
+
 
 // ══════════════════════════════════════════════
 //  STATE
@@ -1416,7 +1834,7 @@ function deleteConv(e, id){
   toast("Conversation deleted","success");
 
   // Clear server session
-  fetch(API+"/clear-session",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({sessionId})}).catch(()=>{});
+  fetch(API+"/clear-session",{method:"POST",headers:authHeaders(),body:JSON.stringify({sessionId})}).catch(()=>{});
 }
 
 function showWelcome(){
@@ -1618,7 +2036,7 @@ async function sendMessage(text){
   try{
     const resp = await fetch(API+"/chat",{
       method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:authHeaders(),
       body: JSON.stringify({message:msg, sessionId})
     });
     if(!resp.ok) throw new Error("HTTP "+resp.status);
@@ -1957,5 +2375,61 @@ document.getElementById('send-btn').addEventListener('click', function(){
 })();
 
 </script>
+
+<!-- ══ AUTH MODAL ══════════════════════════════════ -->
+<div class="auth-overlay" id="auth-overlay" style="display:none">
+  <div class="auth-box">
+    <div class="auth-logo">🎓</div>
+    <div class="auth-title">PBR AI</div>
+    <div class="auth-sub">Partnership Business · Sayar Nyan Lin Aung</div>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-login"    onclick="switchTab('login')">Log In</button>
+      <button class="auth-tab"        id="tab-register" onclick="switchTab('register')">Sign Up</button>
+    </div>
+
+    <div class="auth-error" id="auth-error"></div>
+
+    <div class="auth-field">
+      <label class="auth-label">EMAIL</label>
+      <input class="auth-input" type="email" id="auth-email" placeholder="you@example.com" autocomplete="email">
+    </div>
+    <div class="auth-field">
+      <label class="auth-label">PASSWORD</label>
+      <input class="auth-input" type="password" id="auth-password" placeholder="••••••••" autocomplete="current-password"
+        onkeydown="if(event.key==='Enter') submitAuth()">
+    </div>
+
+    <label class="auth-remember">
+      <input type="checkbox" id="auth-remember" checked>
+      Keep me logged in
+    </label>
+
+    <button class="auth-submit" id="auth-submit-btn" onclick="submitAuth()">Log In</button>
+  </div>
+</div>
+
+<!-- ══ UPGRADE MODAL ════════════════════════════════ -->
+<div class="upgrade-overlay" id="upgrade-overlay">
+  <div class="upgrade-box">
+    <div class="upgrade-icon">⭐</div>
+    <div class="upgrade-title">Upgrade to Premium</div>
+    <div class="upgrade-sub">You've used all <strong id="limit-cap-display">10</strong> free messages today.<br>Upgrade for unlimited access — resets tomorrow otherwise.</div>
+    <ul class="upgrade-perks">
+      <li>Unlimited messages every day</li>
+      <li>Priority response speed</li>
+      <li>Full document knowledge base access</li>
+    </ul>
+    <div class="upgrade-code-row">
+      <input class="upgrade-code-input" type="text" id="upgrade-code-input"
+        placeholder="Enter premium code…"
+        onkeydown="if(event.key==='Enter') submitUpgrade()">
+      <button class="upgrade-submit" onclick="submitUpgrade()">Activate</button>
+    </div>
+    <div class="upgrade-error" id="upgrade-error"></div>
+    <button class="upgrade-close" onclick="closeUpgrade()">Maybe later — come back tomorrow</button>
+  </div>
+</div>
+
 </body>
 </html>
