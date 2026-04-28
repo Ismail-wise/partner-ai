@@ -7,6 +7,7 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -26,6 +27,33 @@ app.use((req, res, next) => {
 app.use(rateLimit({ windowMs: 60 * 1000, max: 80 }));
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
+
+// ── MULTER (PDF uploads) ─────────────────────────────────────────
+const docsDir = path.join(__dirname, "docs");
+if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, docsDir),
+  destination: (_req, _file, cb) => cb(null, docsDir),
+  filename: (_req, file, cb) => {
+    // Sanitise filename and avoid collisions
+    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_() ]/g, "_");
+    const dest = path.join(docsDir, safe);
+    // If file already exists, overwrite silently
+    cb(null, safe);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB per file
+  fileFilter: (_req, file, cb) => {
+    if (file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only PDF files are accepted."));
+    }
+  }
+});
 
 // ── GEMINI ──────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
@@ -64,10 +92,22 @@ function splitText(text, source, size = 500, overlap = 100) {
   return result;
 }
 
+// ── EXTRACT TEXT FROM ONE PDF FILE ──────────────────────────────
+async function extractPdfText(pdfPath) {
+  const data = new Uint8Array(fs.readFileSync(pdfPath));
+  const pdf  = await pdfjsLib.getDocument({ data, standardFontDataUrl }).promise;
+  let text = "";
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page    = await pdf.getPage(i);
+    const content = await page.getTextContent();
+    text += content.items.map(item => item.str).filter(s => s?.trim()).join(" ") + "\n";
+  }
+  return text;
+}
+
 // ── LOAD PDFs ────────────────────────────────────────────────────
 async function loadPDFs() {
   try {
-    const docsDir = path.join(__dirname, "docs");
     console.log("📁 Loading PDFs from:", docsDir);
     if (!fs.existsSync(docsDir)) return;
     const files = fs.readdirSync(docsDir);
@@ -77,14 +117,7 @@ async function loadPDFs() {
       const pdfPath = path.join(docsDir, file);
       console.log("📄 Loading:", file);
       try {
-        const data = new Uint8Array(fs.readFileSync(pdfPath));
-        const pdf = await pdfjsLib.getDocument({ data, standardFontDataUrl }).promise;
-        let fileText = "";
-        for (let i = 1; i <= pdf.numPages; i++) {
-          const page = await pdf.getPage(i);
-          const content = await page.getTextContent();
-          fileText += content.items.map(item => item.str).filter(s => s?.trim()).join(" ") + "\n";
-        }
+        const fileText = await extractPdfText(pdfPath);
         if (!fileText.trim()) { console.log(`⚠️ No text: ${file}`); continue; }
         const fileChunks = splitText(fileText, file.replace(/\.pdf$/i, ""), 500, 100);
         chunks.push(...fileChunks);
@@ -103,7 +136,6 @@ async function loadPDFs() {
 const VECTOR_CACHE_PATH = path.join(__dirname, "vectordb_cache.json");
 
 function computeDocFingerprint() {
-  const docsDir = path.join(__dirname, "docs");
   if (!fs.existsSync(docsDir)) return "empty";
   return fs.readdirSync(docsDir)
     .filter(f => f.toLowerCase().endsWith(".pdf"))
@@ -146,7 +178,7 @@ async function buildVectorDB() {
 
 // ── SIMILARITY SEARCH ────────────────────────────────────────────
 function cosineSimilarity(a, b) {
-  const dot = a.reduce((sum, val, i) => sum + val * b[i], 0);
+  const dot   = a.reduce((sum, val, i) => sum + val * b[i], 0);
   const normA = Math.sqrt(a.reduce((sum, val) => sum + val * val, 0));
   const normB = Math.sqrt(b.reduce((sum, val) => sum + val * val, 0));
   return dot / (normA * normB);
@@ -154,14 +186,14 @@ function cosineSimilarity(a, b) {
 
 function applyMMR(candidates, topK, lambda = 0.6) {
   if (candidates.length <= topK) return candidates;
-  const selected = [candidates[0]];
+  const selected  = [candidates[0]];
   const remaining = candidates.slice(1);
   while (selected.length < topK && remaining.length > 0) {
     let bestIdx = 0, bestScore = -Infinity;
     for (let i = 0; i < remaining.length; i++) {
       const relevance = remaining[i].score;
-      const maxSim = Math.max(...selected.map(s => cosineSimilarity(remaining[i].embedding, s.embedding)));
-      const mmrScore = lambda * relevance - (1 - lambda) * maxSim;
+      const maxSim    = Math.max(...selected.map(s => cosineSimilarity(remaining[i].embedding, s.embedding)));
+      const mmrScore  = lambda * relevance - (1 - lambda) * maxSim;
       if (mmrScore > bestScore) { bestScore = mmrScore; bestIdx = i; }
     }
     selected.push(remaining.splice(bestIdx, 1)[0]);
@@ -178,8 +210,8 @@ async function searchRelevantChunks(query, topK = 16) {
     .sort((a, b) => b.score - a.score);
   console.log("📊 Top 5:", scored.slice(0, 5).map(s => `${s.source}: ${s.score.toFixed(3)}`).join(", "));
   const candidatePool = scored.filter(i => i.score > 0.15).slice(0, topK * 2);
-  const pool = candidatePool.length >= 3 ? candidatePool : scored.slice(0, topK * 2);
-  const diverse = applyMMR(pool, topK, 0.6);
+  const pool          = candidatePool.length >= 3 ? candidatePool : scored.slice(0, topK * 2);
+  const diverse       = applyMMR(pool, topK, 0.6);
   return diverse.map(({ text, source, score }) => ({ text, source, score }));
 }
 
@@ -253,11 +285,95 @@ ABSOLUTE RULES — NEVER BREAK THESE:
 // ── ROUTES ────────────────────────────────────────────────────────
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
+// ── LIST DOCS ─────────────────────────────────────────────────────
+app.get("/docs-list", (req, res) => {
+  try {
+    const files = fs.existsSync(docsDir)
+      ? fs.readdirSync(docsDir).filter(f => f.toLowerCase().endsWith(".pdf")).map(f => ({
+          name: f,
+          size: fs.statSync(path.join(docsDir, f)).size
+        }))
+      : [];
+    res.json({ success: true, files, chunks: chunks.length, vectors: vectorDB.length });
+  } catch (e) {
+    res.json({ success: false, error: e.message });
+  }
+});
+
+// ── UPLOAD PDF ────────────────────────────────────────────────────
+app.post("/upload", upload.array("pdfs", 10), async (req, res) => {
+  try {
+    const uploaded = (req.files || []).map(f => f.originalname);
+    if (!uploaded.length) return res.json({ success: false, error: "No PDF files received." });
+    console.log("📤 Uploaded:", uploaded.join(", "));
+
+    // Re-load PDFs and rebuild vector DB in the background
+    // We respond immediately so the client isn't left waiting
+    res.json({ success: true, uploaded, message: "Files received. Rebuilding memory — this takes a moment." });
+
+    // Background rebuild
+    setImmediate(async () => {
+      try {
+        await loadPDFs();
+        // Invalidate cache so it rebuilds
+        if (fs.existsSync(VECTOR_CACHE_PATH)) fs.unlinkSync(VECTOR_CACHE_PATH);
+        await buildVectorDB();
+        console.log("✅ Memory rebuilt after upload.");
+      } catch (e) {
+        console.error("❌ Background rebuild error:", e.message);
+      }
+    });
+
+  } catch (e) {
+    console.error("❌ Upload error:", e.message);
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ── DELETE DOC ────────────────────────────────────────────────────
+app.delete("/docs/:filename", async (req, res) => {
+  try {
+    const filename = path.basename(req.params.filename); // security: strip any path traversal
+    const filePath = path.join(docsDir, filename);
+    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, error: "File not found." });
+    fs.unlinkSync(filePath);
+    console.log("🗑️  Deleted:", filename);
+    res.json({ success: true, deleted: filename });
+
+    // Background rebuild
+    setImmediate(async () => {
+      try {
+        await loadPDFs();
+        if (fs.existsSync(VECTOR_CACHE_PATH)) fs.unlinkSync(VECTOR_CACHE_PATH);
+        await buildVectorDB();
+        console.log("✅ Memory rebuilt after delete.");
+      } catch (e) {
+        console.error("❌ Background rebuild error:", e.message);
+      }
+    });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
+// ── RELOAD DOCS (manual trigger) ─────────────────────────────────
+app.post("/reload-docs", async (req, res) => {
+  try {
+    console.log("🔄 Manual reload triggered.");
+    await loadPDFs();
+    if (fs.existsSync(VECTOR_CACHE_PATH)) fs.unlinkSync(VECTOR_CACHE_PATH);
+    await buildVectorDB();
+    res.json({ success: true, chunks: chunks.length, vectors: vectorDB.length });
+  } catch (e) {
+    res.status(500).json({ success: false, error: e.message });
+  }
+});
+
 // ── CHAT API — STREAMING ─────────────────────────────────────────
 app.post("/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    const sessionId = req.body.sessionId || "default";
+    const sessionId   = req.body.sessionId || "default";
 
     if (!userMessage) {
       res.setHeader("Content-Type", "text/event-stream");
@@ -268,12 +384,13 @@ app.post("/chat", async (req, res) => {
 
     if (!sessionHistories[sessionId]) sessionHistories[sessionId] = [];
 
-    const truncated = smartTruncateForEmbedding(userMessage);
+    const truncated      = smartTruncateForEmbedding(userMessage);
     const relevantChunks = await searchRelevantChunks(truncated, 16);
 
-    // Decide whether the question is actually related to the uploaded documents.
-    // Similarity >= 0.62 = genuinely doc-specific. Below that → general knowledge mode.
-    const DOC_THRESHOLD = 0.62;
+    // ── DOC THRESHOLD ──────────────────────────────────────────
+    // 0.45 = sensitive enough to catch document-related questions without false positives.
+    // Anything below this → pure general knowledge + Google Search mode.
+    const DOC_THRESHOLD = 0.45;
     const topScore = (
       relevantChunks.length > 0 &&
       typeof relevantChunks[0] === "object" &&
@@ -285,7 +402,6 @@ app.post("/chat", async (req, res) => {
     let fullSystemInstruction;
 
     if (useDocContext) {
-      // Question is relevant to uploaded docs — silently bake them into the answer
       console.log(`📚 Doc match (${(topScore * 100).toFixed(0)}%) — injecting context`);
       const pdfContext = relevantChunks
         .filter(c => c.text)
@@ -297,20 +413,23 @@ app.post("/chat", async (req, res) => {
 [BACKGROUND — treat this as knowledge you already have. NEVER mention it, quote it, or refer to it.]
 ${pdfContext}
 [END BACKGROUND]
-Answer naturally from the above. Never tell the user you have files, documents, or any reference material. Just answer like you know it. Complete your answer fully, then end with one useful follow-up question.`;
+Answer naturally from the above background knowledge. Never tell the user you have files, documents, or any reference material. Just answer like you know it. Be thorough — cover every relevant angle from the background. Complete your answer fully, then end with one useful follow-up question.`;
 
     } else {
-      // Question is off-topic for the docs — use general knowledge and/or Google Search
-      console.log(`📚 No doc match (${(topScore * 100).toFixed(0)}%) — general knowledge mode`);
+      console.log(`🌐 General mode (${(topScore * 100).toFixed(0)}%) — research + expertise`);
       fullSystemInstruction = `${systemPrompt}
 
-Answer this from your general expertise in partnership business, law, and strategy. Use Google Search if you need current or specific information. Complete your answer fully, then end with one useful follow-up question.`;
+This question goes beyond the specific documents in your knowledge base. Answer it using your deep general expertise. Go broad and thorough:
+  - Pull in everything you know about the topic from your training
+  - Use Google Search to find current, specific, or recent information (tax rates, law changes, live data, company-specific facts, 2025 developments)
+  - Cross-reference multiple angles — legal, practical, strategic, financial
+  - Give the most complete, useful answer you can
+  - Real examples and numbers always beat abstract advice
+Complete your answer fully, then end with one genuinely useful follow-up question.`;
     }
 
-    // Convert session history to Gemini format
-    // Gemini uses "user" and "model" roles (not "assistant")
     const geminiHistory = sessionHistories[sessionId].map(msg => ({
-      role: msg.role === "assistant" ? "model" : "user",
+      role:  msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }]
     }));
 
@@ -330,24 +449,16 @@ Answer this from your general expertise in partnership business, law, and strate
         generationConfig: {
           temperature: 0.6,
           maxOutputTokens: 8000
-          // thinkingBudget intentionally NOT set — Google Search needs thinking enabled
         }
       });
 
-      const chat = model.startChat({ history: geminiHistory });
+      const chat   = model.startChat({ history: geminiHistory });
       const result = await chat.sendMessageStream(userMessage);
 
-      // Manual iteration so a single bad chunk (thinking token, search metadata, etc.)
-      // is silently skipped instead of crashing the entire stream.
       const iter = result.stream[Symbol.asyncIterator]();
       while (true) {
         let next;
-        try {
-          next = await iter.next();
-        } catch (_) {
-          // SDK failed to parse one raw HTTP chunk — skip it and keep going
-          continue;
-        }
+        try { next = await iter.next(); } catch (_) { continue; }
         if (next.done) break;
         try {
           const text = next.value.text();
@@ -355,13 +466,11 @@ Answer this from your general expertise in partnership business, law, and strate
             fullReply += text;
             res.write(`data: ${JSON.stringify({ text })}\n\n`);
           }
-        } catch (_) {
-          // thinking-only chunk — no text to extract, skip silently
-        }
+        } catch (_) { /* thinking-only chunk */ }
       }
 
-      sessionHistories[sessionId].push({ role: "user", content: userMessage });
-      sessionHistories[sessionId].push({ role: "assistant", content: fullReply });
+      sessionHistories[sessionId].push({ role: "user",      content: userMessage });
+      sessionHistories[sessionId].push({ role: "assistant", content: fullReply   });
       sessionHistories[sessionId] = sessionHistories[sessionId].slice(-MAX_HISTORY);
 
       const keys = Object.keys(sessionHistories);
@@ -371,18 +480,13 @@ Answer this from your general expertise in partnership business, law, and strate
     } catch (streamErr) {
       console.error("❌ Stream error:", streamErr.message);
       if (fullReply.length > 0) {
-        // Partial content was already streamed — close cleanly without an error message
         res.write(`data: [DONE]\n\n`);
       } else {
-        // Nothing was sent yet — give a friendly retry message
         const hint =
-          streamErr.message?.includes("429")
-            ? "I'm receiving too many requests right now. Please wait a moment and try again."
-          : streamErr.message?.includes("401")
-            ? "There's an authentication issue. Please check the API configuration."
-          : streamErr.message?.includes("503")
-            ? "The AI service is temporarily unavailable. Please try again in a moment."
-          : "Something went wrong on my end. Please try sending your message again.";
+          streamErr.message?.includes("429") ? "I'm receiving too many requests right now. Please wait a moment and try again."
+        : streamErr.message?.includes("401") ? "There's an authentication issue. Please check the API configuration."
+        : streamErr.message?.includes("503") ? "The AI service is temporarily unavailable. Please try again in a moment."
+        : "Something went wrong on my end. Please try sending your message again.";
         res.write(`data: ${JSON.stringify({ text: hint })}\n\n`);
         res.write(`data: [DONE]\n\n`);
       }

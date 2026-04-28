@@ -253,6 +253,27 @@ html[data-theme="dark"] .chat-wrapper{
 .sb-new-btn:hover{background:linear-gradient(135deg,rgba(22,163,74,.28),rgba(34,197,94,.2));border-color:rgba(34,197,94,.4);color:#bbf7d0;transform:translateY(-1px);}
 .sb-new-btn svg{width:13px;height:13px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2.5;}
 
+.sb-upload-btn{
+  margin:7px 12px 0;
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  padding:8px 14px;border-radius:var(--r-md);
+  background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.06));
+  border:1px solid rgba(245,158,11,.28);
+  color:var(--au6);font-size:12px;font-weight:600;
+  cursor:pointer;transition:all .2s var(--ease);
+}
+.sb-upload-btn:hover{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.12));border-color:rgba(245,158,11,.5);color:var(--au7);transform:translateY(-1px);}
+.sb-upload-btn svg{width:13px;height:13px;flex-shrink:0;}
+.sb-doc-item{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:8px;border:1px solid rgba(34,197,94,.1);margin-bottom:4px;transition:all .18s;}
+.sb-doc-item:hover{background:rgba(34,197,94,.06);}
+.sb-doc-name{flex:1;min-width:0;font-size:11px;color:rgba(220,252,231,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.sb-doc-size{font-size:9.5px;color:rgba(134,239,172,.35);flex-shrink:0;}
+.sb-doc-del{width:18px;height:18px;border-radius:4px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.18);color:rgba(248,113,113,.7);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;opacity:0;transition:opacity .15s;}
+.sb-doc-item:hover .sb-doc-del{opacity:1;}
+.sb-doc-del:hover{background:rgba(239,68,68,.25);color:#fca5a5;}
+.sb-doc-del svg{width:8px;height:8px;fill:none;stroke:currentColor;stroke-width:2.5;}
+.sb-docs-empty{font-size:11px;color:rgba(134,239,172,.35);padding:8px 8px 4px;font-style:italic;}
+
 /* Section label */
 .sb-section{
   padding:14px 16px 5px;
@@ -868,6 +889,20 @@ html[data-theme="dark"] .chat-box{
     <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     New Conversation
   </button>
+
+  <!-- PDF Upload -->
+  <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display:none" onchange="handlePdfUpload(event)">
+  <button class="sb-upload-btn" onclick="document.getElementById('pdf-file-input').click()">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+    Upload PDF Document
+  </button>
+  <div id="upload-status" style="display:none;margin:6px 12px 0;font-size:11px;padding:7px 10px;border-radius:8px;"></div>
+
+  <div class="sb-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:12px;">
+    <span>Knowledge Base</span>
+    <button onclick="loadDocsList()" style="background:none;border:none;color:rgba(245,158,11,.6);cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.3px;">↻</button>
+  </div>
+  <div id="sb-docs-list" style="padding:0 8px 4px;"></div>
 
   <div class="sb-section">Conversations</div>
   <div id="sb-list"><div class="sb-empty">No conversations yet.<br>Start chatting to build history.</div></div>
@@ -1653,6 +1688,86 @@ document.getElementById("send-btn").addEventListener("mousedown", function(e){
   this.appendChild(r);
   setTimeout(() => r.remove(), 600);
 });
+
+// ══════════════════════════════════════════════
+//  PDF UPLOAD & DOCS MANAGER
+// ══════════════════════════════════════════════
+async function handlePdfUpload(e){
+  const files = Array.from(e.target.files||[]);
+  if(!files.length) return;
+  const status = document.getElementById("upload-status");
+  status.style.display = "block";
+  status.style.background = "rgba(245,158,11,.1)";
+  status.style.border = "1px solid rgba(245,158,11,.25)";
+  status.style.color = "#fcd34d";
+  status.textContent = `⏳ Uploading ${files.length} file${files.length>1?"s":""}…`;
+  const fd = new FormData();
+  files.forEach(f => fd.append("pdfs", f));
+  try{
+    const res = await fetch(API+"/upload", { method:"POST", body: fd });
+    const data = await res.json();
+    if(data.success){
+      status.style.background = "rgba(22,163,74,.12)";
+      status.style.border = "1px solid rgba(22,163,74,.28)";
+      status.style.color = "#86efac";
+      status.textContent = `✅ ${data.uploaded.length} file${data.uploaded.length>1?"s":""} uploaded. Rebuilding memory…`;
+      toast("PDF uploaded — rebuilding memory in background", "success");
+      setTimeout(() => { status.style.display = "none"; loadDocsList(); }, 4000);
+    } else {
+      throw new Error(data.error||"Upload failed");
+    }
+  } catch(err){
+    status.style.background = "rgba(239,68,68,.1)";
+    status.style.border = "1px solid rgba(239,68,68,.25)";
+    status.style.color = "#fca5a5";
+    status.textContent = "❌ Upload failed: " + err.message;
+    setTimeout(() => { status.style.display = "none"; }, 5000);
+  }
+  e.target.value = ""; // reset input so same file can be re-uploaded
+}
+
+async function loadDocsList(){
+  const el = document.getElementById("sb-docs-list");
+  if(!el) return;
+  try{
+    const res  = await fetch(API+"/docs-list");
+    const data = await res.json();
+    if(!data.success || !data.files.length){
+      el.innerHTML = '<div class="sb-docs-empty">No documents yet.<br>Upload PDFs above to build memory.</div>';
+      return;
+    }
+    el.innerHTML = data.files.map(f => `
+      <div class="sb-doc-item">
+        <span style="font-size:13px;">📄</span>
+        <span class="sb-doc-name" title="${xss(f.name)}">${xss(f.name)}</span>
+        <span class="sb-doc-size">${(f.size/1024).toFixed(0)}KB</span>
+        <button class="sb-doc-del" onclick="deleteDoc('${xss(f.name)}')" title="Remove">
+          <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
+        </button>
+      </div>`).join("");
+    // Show chunk/vector count
+    el.innerHTML += `<div style="font-size:9.5px;color:rgba(134,239,172,.3);padding:4px 8px 2px;">${data.vectors} vectors · ${data.files.length} doc${data.files.length>1?"s":""}</div>`;
+  } catch(_){
+    el.innerHTML = '<div class="sb-docs-empty">Could not load docs list.</div>';
+  }
+}
+
+async function deleteDoc(name){
+  if(!confirm(`Remove "${name}" from memory?`)) return;
+  try{
+    const res  = await fetch(API+"/docs/"+encodeURIComponent(name), { method:"DELETE" });
+    const data = await res.json();
+    if(data.success){
+      toast("Document removed — rebuilding memory…", "success");
+      loadDocsList();
+    } else {
+      toast("Failed to remove: "+(data.error||"unknown error"), "error");
+    }
+  } catch(_){ toast("Network error", "error"); }
+}
+
+// Load docs list on start
+loadDocsList();
 
 // ══════════════════════════════════════════════
 //  FLOATING PARTICLE SYSTEM
