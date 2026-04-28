@@ -2062,8 +2062,23 @@ async function sendMessage(text){
         const raw = line.slice(5).trim();
         if(raw === "[DONE]"){ done_flag = true; break; }
         try{
-          const {text: chunk} = JSON.parse(raw);
-          if(chunk) received += chunk;
+          const parsed = JSON.parse(raw);
+          // Limit reached — lock input and show upgrade
+          if(parsed.limitReached){
+            done_flag = true; sseEnded = true;
+            if(twTimer){ clearInterval(twTimer); twTimer = null; }
+            hideTyping(); finalize();
+            if(currentUser) currentUser.dailyCount = parsed.cap;
+            updateCounter(parsed.cap, parsed.cap, "free");
+            showUpgrade();
+            break;
+          }
+          // Update daily counter after each message
+          if(parsed.dailyCount !== undefined && parsed.dailyCount !== null && currentUser){
+            currentUser.dailyCount = parsed.dailyCount;
+            updateCounter(parsed.dailyCount, parsed.dailyCap || 10, currentUser.role);
+          }
+          if(parsed.text) received += parsed.text;
         }catch(_){}
       }
     }
