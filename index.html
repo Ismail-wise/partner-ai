@@ -1191,6 +1191,91 @@ html[data-theme="dark"] .orb{opacity:.18;}
 }
 .upgrade-close:hover{color:#86efac;border-color:rgba(34,197,94,.3);}
 
+/* ══════════════════════════════════════════
+   LANDING (path selection)
+══════════════════════════════════════════ */
+.landing-overlay{
+  position:fixed;inset:0;z-index:250;
+  background:rgba(0,0,0,.84);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+  display:flex;align-items:center;justify-content:center;
+  animation:authFadeIn .3s ease both;
+}
+.landing-box{
+  background:linear-gradient(145deg,#030e06,#071408,#0c1f10);
+  border:1px solid rgba(34,197,94,.2);border-radius:28px;
+  padding:44px 38px 36px;width:92%;max-width:460px;
+  box-shadow:0 40px 100px rgba(0,0,0,.72),0 0 0 1px rgba(34,197,94,.08),0 0 60px rgba(22,163,74,.06);
+  animation:authBoxPop .44s cubic-bezier(.34,1.56,.64,1) both;
+  text-align:center;position:relative;overflow:hidden;
+}
+.landing-box::before{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 50% 0%,rgba(34,197,94,.09),transparent 60%);
+}
+.landing-logo{
+  width:60px;height:60px;border-radius:17px;margin:0 auto 18px;
+  background:linear-gradient(145deg,#0c3a1e,#16a34a,#4ade80);
+  display:flex;align-items:center;justify-content:center;font-size:28px;
+  border:2px solid rgba(134,239,172,.28);
+  box-shadow:0 0 0 6px rgba(34,197,94,.06),0 0 32px rgba(22,163,74,.28);
+  animation:logoFloat 4s ease-in-out infinite;
+}
+.landing-title{
+  font-size:21px;font-weight:900;margin-bottom:4px;
+  background:linear-gradient(90deg,#dcfce7,#86efac,#fbbf24);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+}
+.landing-sub{font-size:11.5px;color:rgba(134,239,172,.42);margin-bottom:28px;}
+
+.landing-options{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.landing-options.dimmed .landing-card:not(.selected){opacity:.32;pointer-events:none;}
+
+.landing-card{
+  padding:22px 14px;border-radius:14px;
+  background:rgba(34,197,94,.06);border:1.5px solid rgba(34,197,94,.16);
+  cursor:pointer;transition:all .25s cubic-bezier(.34,1.56,.64,1);
+  position:relative;overflow:hidden;
+}
+.landing-card:hover{
+  background:rgba(34,197,94,.13);border-color:rgba(34,197,94,.38);
+  transform:translateY(-3px) scale(1.02);
+}
+.landing-card.admin-card{border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.05);}
+.landing-card.admin-card:hover{background:rgba(245,158,11,.11);border-color:rgba(245,158,11,.42);}
+.landing-card.selected{
+  border-color:rgba(245,158,11,.55);background:rgba(245,158,11,.1);
+  box-shadow:0 0 0 3px rgba(245,158,11,.1),0 8px 24px rgba(245,158,11,.12);
+  transform:translateY(-2px);
+}
+.landing-card-icon{font-size:26px;margin-bottom:9px;}
+.landing-card-title{font-size:13.5px;font-weight:800;color:#dcfce7;margin-bottom:4px;}
+.landing-card.admin-card .landing-card-title{color:#fbbf24;}
+.landing-card-desc{font-size:10.5px;color:rgba(134,239,172,.42);line-height:1.55;}
+.landing-card.admin-card .landing-card-desc{color:rgba(251,191,36,.38);}
+
+.admin-key-section{margin-top:20px;animation:authFadeIn .28s ease both;}
+.admin-key-input{
+  width:100%;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.22);
+  border-radius:10px;color:#dcfce7;font-family:inherit;font-size:13.5px;
+  padding:11px 14px;outline:none;transition:border-color .2s,box-shadow .2s;margin-bottom:8px;
+}
+.admin-key-input:focus{border-color:rgba(245,158,11,.55);box-shadow:0 0 0 3px rgba(245,158,11,.1);}
+.admin-key-input::placeholder{color:rgba(245,158,11,.28);}
+.admin-key-error{font-size:11.5px;color:#fca5a5;min-height:18px;text-align:center;margin-bottom:10px;}
+.admin-key-actions{display:flex;gap:10px;}
+.admin-key-btn{
+  flex:1;padding:11px;border-radius:10px;border:none;cursor:pointer;
+  font-family:inherit;font-size:12.5px;font-weight:700;transition:all .2s;
+}
+.admin-key-btn.cancel{
+  background:rgba(34,197,94,.08);color:rgba(134,239,172,.6);
+  border:1px solid rgba(34,197,94,.18);
+}
+.admin-key-btn.cancel:hover{background:rgba(34,197,94,.14);color:#86efac;}
+.admin-key-btn.confirm{background:linear-gradient(135deg,#92400e,#f59e0b,#fbbf24);color:#1a0a00;}
+.admin-key-btn.confirm:hover{opacity:.9;transform:translateY(-1px);}
+.admin-key-btn.confirm:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
 </style>
 </head>
 <body>
@@ -1363,6 +1448,37 @@ html[data-theme="dark"] .orb{opacity:.18;}
 <div id="toast-wrap"></div>
 
 
+<!-- ══ LANDING (path selection) ════════════════════════════════════ -->
+<div class="landing-overlay" id="landing-overlay" style="display:none">
+  <div class="landing-box">
+    <div class="landing-logo">🎓</div>
+    <div class="landing-title">PBR AI</div>
+    <div class="landing-sub">Partnership Business · Sayar Nyan Lin Aung</div>
+    <div class="landing-options" id="landing-options">
+      <div class="landing-card" id="lc-user" onclick="choosePath('user')">
+        <div class="landing-card-icon">💬</div>
+        <div class="landing-card-title">User Chat</div>
+        <div class="landing-card-desc">Access your AI partnership consultant</div>
+      </div>
+      <div class="landing-card admin-card" id="lc-admin" onclick="choosePath('admin')">
+        <div class="landing-card-icon">⚙️</div>
+        <div class="landing-card-title">Admin Panel</div>
+        <div class="landing-card-desc">Manage users &amp; subscriptions</div>
+      </div>
+    </div>
+    <div class="admin-key-section" id="admin-key-section" style="display:none">
+      <input class="admin-key-input" type="password" id="admin-key-input"
+        placeholder="Enter admin secret…"
+        onkeydown="if(event.key==='Enter') submitAdminKey()">
+      <div class="admin-key-error" id="admin-key-error"></div>
+      <div class="admin-key-actions">
+        <button class="admin-key-btn cancel" onclick="cancelAdmin()">← Back</button>
+        <button class="admin-key-btn confirm" id="admin-key-submit" onclick="submitAdminKey()">Enter Admin Panel →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ══ AUTH MODAL ══════════════════════════════════ -->
 <div class="auth-overlay" id="auth-overlay" style="display:none">
   <div class="auth-box">
@@ -1444,6 +1560,55 @@ function clearToken(){
 }
 function authHeaders(){
   return authToken ? { "Content-Type":"application/json", "Authorization":"Bearer "+authToken } : { "Content-Type":"application/json" };
+}
+
+// ── LANDING ───────────────────────────────────────────────────────
+function showLanding(){
+  document.getElementById("landing-overlay").style.display = "flex";
+}
+function hideLanding(){
+  document.getElementById("landing-overlay").style.display = "none";
+}
+function choosePath(path){
+  if(path === "admin"){
+    document.getElementById("landing-options").classList.add("dimmed");
+    document.getElementById("lc-admin").classList.add("selected");
+    document.getElementById("admin-key-section").style.display = "block";
+    setTimeout(()=>document.getElementById("admin-key-input").focus(), 50);
+  } else {
+    hideLanding();
+    showAuthModal();
+  }
+}
+function cancelAdmin(){
+  document.getElementById("landing-options").classList.remove("dimmed");
+  document.getElementById("lc-admin").classList.remove("selected");
+  document.getElementById("admin-key-section").style.display = "none";
+  document.getElementById("admin-key-error").textContent = "";
+  document.getElementById("admin-key-input").value = "";
+}
+async function submitAdminKey(){
+  const key   = document.getElementById("admin-key-input").value.trim();
+  const errEl = document.getElementById("admin-key-error");
+  const btn   = document.getElementById("admin-key-submit");
+  if(!key){ errEl.textContent = "Please enter the admin secret."; return; }
+  errEl.textContent = "";
+  btn.disabled    = true;
+  btn.textContent = "Verifying…";
+  try{
+    const res  = await fetch(API+"/admin/users", { headers:{"x-admin-secret": key} });
+    const data = await res.json();
+    if(data.success){
+      sessionStorage.setItem("pbr_admin_key", key);
+      window.location.href = "/admin";
+    } else {
+      errEl.textContent = "Invalid admin secret. Try again.";
+    }
+  }catch(_){ errEl.textContent = "Connection error."; }
+  finally{
+    btn.disabled    = false;
+    btn.textContent = "Enter Admin Panel →";
+  }
 }
 
 // ── SHOW / HIDE AUTH MODAL ────────────────────────────────────────
@@ -1596,9 +1761,9 @@ function logout(){
   input.disabled   = false;
   input.placeholder = "Ask anything in English or မြန်မာဘာသာ…";
   document.getElementById("send-btn").disabled = false;
-  // Clear chat and show auth
+  // Clear chat and show landing
   startFreshConv();
-  showAuthModal();
+  showLanding();
   toast("Logged out","success");
 }
 
@@ -1649,7 +1814,7 @@ async function submitUpgrade(){
 // ── INIT AUTH ─────────────────────────────────────────────────────
 async function initAuth(){
   const stored = getStoredToken();
-  if(!stored){ showAuthModal(); return; }
+  if(!stored){ showLanding(); return; }
   try{
     const res  = await fetch(API+"/auth/me", { headers:{"Authorization":"Bearer "+stored} });
     const data = await res.json();
@@ -1659,11 +1824,10 @@ async function initAuth(){
       onAuthSuccess();
     } else {
       clearToken();
-      showAuthModal();
+      showLanding();
     }
   }catch(_){
-    // Server unreachable — show auth modal
-    showAuthModal();
+    showLanding();
   }
 }
 

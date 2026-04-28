@@ -393,6 +393,16 @@ function xss(s){ return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").rep
 document.querySelectorAll(".modal-overlay").forEach(el=>{
   el.addEventListener("click", e=>{ if(e.target===el) el.classList.remove("open"); });
 });
+
+// Auto-load if arriving from landing page with validated key
+(function(){
+  const k = sessionStorage.getItem("pbr_admin_key");
+  if(k){
+    document.getElementById("secret-input").value = k;
+    sessionStorage.removeItem("pbr_admin_key");
+    loadUsers();
+  }
+})();
 </script>
 </body>
 </html>
