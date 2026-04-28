@@ -1471,6 +1471,18 @@ function onAuthSuccess(){
   updateCounter(currentUser.dailyCount, currentUser.dailyCap, currentUser.role);
 
   toast("Welcome back, " + currentUser.email.split("@")[0] + "!", "success");
+
+  // Now safe to load conversations (auth is confirmed)
+  renderSidebarList();
+  const lastId = localStorage.getItem("pbr_active");
+  const list   = getChatList();
+  if(lastId && list.find(c=>c.id===lastId)){
+    loadConv(lastId, false);
+  } else if(list.length){
+    loadConv(list[0].id, false);
+  } else {
+    startFreshConv();
+  }
 }
 
 // ── UPDATE COUNTER ────────────────────────────────────────────────
@@ -1638,7 +1650,7 @@ function deleteChatData(id){
 // Falls back to crypto.randomUUID() if server unreachable.
 async function acquireServerId(){
   try{
-    const r = await fetch(API+"/init-session",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const r = await fetch(API+"/init-session",{method:"POST",headers:authHeaders(),body:"{}"});
     const d = await r.json();
     return d.sessionId || crypto.randomUUID();
   }catch(_){ return crypto.randomUUID(); }
@@ -1669,24 +1681,16 @@ function upsertConvMeta(id, title, sid){
 // ══════════════════════════════════════════════
 (function init(){
   applyTheme(localStorage.getItem("pbr_theme")||"light");
-  renderSidebarList();
 
-  // Restore last active conversation
-  const lastId = localStorage.getItem("pbr_active");
-  const list   = getChatList();
-  if(lastId && list.find(c=>c.id===lastId)){
-    loadConv(lastId, false);
-  } else if(list.length){
-    loadConv(list[0].id, false);
-  } else {
-    startFreshConv();
-  }
-
+  // Scroll listener
   const box = document.getElementById("chat-box");
   box.addEventListener("scroll",()=>{
     const near = box.scrollHeight - box.scrollTop - box.clientHeight < 120;
     document.getElementById("scroll-btn").classList.toggle("visible",!near);
   });
+
+  // Auth-first: everything loads after login succeeds
+  initAuth();
 })();
 
 // ══════════════════════════════════════════════
