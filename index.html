@@ -253,26 +253,7 @@ html[data-theme="dark"] .chat-wrapper{
 .sb-new-btn:hover{background:linear-gradient(135deg,rgba(22,163,74,.28),rgba(34,197,94,.2));border-color:rgba(34,197,94,.4);color:#bbf7d0;transform:translateY(-1px);}
 .sb-new-btn svg{width:13px;height:13px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:2.5;}
 
-.sb-upload-btn{
-  margin:7px 12px 0;
-  display:flex;align-items:center;justify-content:center;gap:7px;
-  padding:8px 14px;border-radius:var(--r-md);
-  background:linear-gradient(135deg,rgba(245,158,11,.1),rgba(245,158,11,.06));
-  border:1px solid rgba(245,158,11,.28);
-  color:var(--au6);font-size:12px;font-weight:600;
-  cursor:pointer;transition:all .2s var(--ease);
-}
-.sb-upload-btn:hover{background:linear-gradient(135deg,rgba(245,158,11,.2),rgba(245,158,11,.12));border-color:rgba(245,158,11,.5);color:var(--au7);transform:translateY(-1px);}
-.sb-upload-btn svg{width:13px;height:13px;flex-shrink:0;}
-.sb-doc-item{display:flex;align-items:center;gap:7px;padding:6px 8px;border-radius:8px;border:1px solid rgba(34,197,94,.1);margin-bottom:4px;transition:all .18s;}
-.sb-doc-item:hover{background:rgba(34,197,94,.06);}
-.sb-doc-name{flex:1;min-width:0;font-size:11px;color:rgba(220,252,231,.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-.sb-doc-size{font-size:9.5px;color:rgba(134,239,172,.35);flex-shrink:0;}
-.sb-doc-del{width:18px;height:18px;border-radius:4px;background:rgba(239,68,68,.1);border:1px solid rgba(239,68,68,.18);color:rgba(248,113,113,.7);display:flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;opacity:0;transition:opacity .15s;}
-.sb-doc-item:hover .sb-doc-del{opacity:1;}
-.sb-doc-del:hover{background:rgba(239,68,68,.25);color:#fca5a5;}
-.sb-doc-del svg{width:8px;height:8px;fill:none;stroke:currentColor;stroke-width:2.5;}
-.sb-docs-empty{font-size:11px;color:rgba(134,239,172,.35);padding:8px 8px 4px;font-style:italic;}
+
 
 /* Section label */
 .sb-section{
@@ -866,9 +847,187 @@ html[data-theme="dark"] .chat-box{
 
 /* Hdr-sub refined */
 .hdr-sub{font-size:10px;color:rgba(187,247,208,.55);margin-top:2px;display:flex;align-items:center;flex-wrap:wrap;gap:2px;}
+
+/* ══════════════════════════════════════════
+   ADVANCED ANIMATIONS V3
+══════════════════════════════════════════ */
+
+/* ── Glowing orb blobs (absolutely positioned behind chat) ── */
+.orb{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:0;
+  filter:blur(72px);opacity:.28;
+  animation:orbFloat var(--dur,18s) ease-in-out infinite;
+}
+.orb1{width:520px;height:520px;top:-120px;left:-160px;
+  background:radial-gradient(circle,oklch(0.62 0.19 145),transparent 70%);
+  --dur:22s;}
+.orb2{width:380px;height:380px;bottom:-80px;right:-100px;
+  background:radial-gradient(circle,oklch(0.55 0.18 155),transparent 70%);
+  --dur:17s;animation-delay:-7s;}
+.orb3{width:280px;height:280px;top:40%;left:60%;
+  background:radial-gradient(circle,oklch(0.70 0.16 85),transparent 70%);
+  --dur:26s;opacity:.16;animation-delay:-13s;}
+@keyframes orbFloat{
+  0%  {transform:translate(0,0)   scale(1);}
+  25% {transform:translate(40px,-30px) scale(1.08);}
+  50% {transform:translate(-20px,50px) scale(.94);}
+  75% {transform:translate(60px,20px)  scale(1.05);}
+  100%{transform:translate(0,0)   scale(1);}
+}
+html[data-theme="dark"] .orb{opacity:.18;}
+
+/* ── Message bubble entrance — directional spring ── */
+@keyframes bubbleFromRight{
+  0%  {opacity:0;transform:translateX(36px) scale(.88);}
+  60% {transform:translateX(-5px) scale(1.02);}
+  100%{opacity:1;transform:none;}
+}
+@keyframes bubbleFromLeft{
+  0%  {opacity:0;transform:translateX(-36px) scale(.88);}
+  60% {transform:translateX(5px) scale(1.02);}
+  100%{opacity:1;transform:none;}
+}
+.message-row.user{animation:bubbleFromRight .42s cubic-bezier(.34,1.56,.64,1) both;}
+.message-row.ai  {animation:bubbleFromLeft  .42s cubic-bezier(.34,1.56,.64,1) both;}
+
+/* ── Neural-pulse thinking indicator ── */
+.neural-ring{
+  position:relative;width:44px;height:44px;
+  display:flex;align-items:center;justify-content:center;
+}
+.neural-ring::before,.neural-ring::after{
+  content:"";position:absolute;border-radius:50%;
+  border:1.5px solid rgba(34,197,94,.3);
+}
+.neural-ring::before{inset:0;animation:ringPulse 1.8s ease-in-out infinite;}
+.neural-ring::after {inset:-8px;animation:ringPulse 1.8s ease-in-out infinite .6s;opacity:.5;}
+@keyframes ringPulse{
+  0%  {transform:scale(.85);opacity:.8;}
+  50% {transform:scale(1.18);opacity:.2;}
+  100%{transform:scale(.85);opacity:.8;}
+}
+.typing-dots-wrap{display:flex;gap:5px;align-items:center;}
+.typing-dot{
+  width:8px;height:8px;border-radius:50%;
+  background:var(--g5);
+  animation:neuralDot 1.4s cubic-bezier(.455,.03,.515,.955) infinite;
+}
+.typing-dot:nth-child(1){animation-delay:0s;}
+.typing-dot:nth-child(2){animation-delay:.16s;}
+.typing-dot:nth-child(3){animation-delay:.32s;}
+@keyframes neuralDot{
+  0%,80%,100%{transform:scale(.55);opacity:.35;box-shadow:0 0 0 0 rgba(34,197,94,0);}
+  40%{transform:scale(1.3);opacity:1;box-shadow:0 0 12px 3px rgba(34,197,94,.45);}
+}
+
+/* ── Send button: wave burst on click ── */
+@keyframes waveBurst{
+  0%  {transform:scale(0);opacity:.7;}
+  100%{transform:scale(3.5);opacity:0;}
+}
+.send-wave{
+  position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:radial-gradient(circle,rgba(134,239,172,.5),transparent 70%);
+  animation:waveBurst .55s ease-out forwards;
+}
+
+/* ── Chat wrapper subtle 3-D tilt on mouse move ── */
+.chat-wrapper{
+  transition:transform .12s ease, box-shadow .12s ease;
+  transform-style:preserve-3d;
+}
+
+/* ── AI bubble: shimmer sweep while streaming ── */
+#stream-bubble::after{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;
+  background:linear-gradient(100deg,transparent 20%,rgba(34,197,94,.07) 50%,transparent 80%);
+  background-size:200% 100%;
+  animation:streamShimmer 1.8s linear infinite;
+}
+#stream-bubble{position:relative;overflow:hidden;}
+@keyframes streamShimmer{
+  0%  {background-position:200% 0;}
+  100%{background-position:-200% 0;}
+}
+
+/* ── Scroll-to-bottom button: wave ring ── */
+.scroll-btn.visible::before{
+  content:"";position:absolute;inset:-4px;border-radius:50%;
+  border:1.5px solid rgba(34,197,94,.4);
+  animation:scrollRing 2s ease-in-out infinite;
+}
+@keyframes scrollRing{
+  0%,100%{transform:scale(1);opacity:.6;}
+  50%    {transform:scale(1.3);opacity:0;}
+}
+
+/* ── Header: aurora sweep ── */
+.chat-header::before{
+  animation:hdrGrid 20s linear infinite;
+}
+@keyframes hdrGrid{
+  0%  {background-position:0 0;}
+  100%{background-position:40px 40px;}
+}
+
+/* ── Sidebar open: spring slide ── */
+#sidebar{transition:transform .38s cubic-bezier(.34,1.4,.64,1);}
+
+/* ── Welcome logo: magnetic hover ── */
+.welcome-logo-wrap{cursor:default;transition:transform .2s ease;}
+.welcome-logo{transition:box-shadow .3s ease;}
+
+/* ── Message hover: lift ── */
+.message-row.ai:hover  .message-text{transform:translateY(-1px);box-shadow:var(--sh-md),0 0 0 1px rgba(22,163,74,.12);}
+.message-row.user:hover .message-text{transform:translateY(-1px);}
+.message-text{transition:transform .22s var(--spring),box-shadow .22s ease;}
+
+/* ── Gold line: faster shimmer ── */
+@keyframes goldShimmer{0%{left:-200%}100%{left:200%}}
+
+/* ── Status dot: sonar pulse ── */
+.status-dot::after{
+  content:"";position:absolute;inset:-4px;border-radius:50%;
+  border:1px solid rgba(34,197,94,.5);
+  animation:sonarPing 2.5s ease-out infinite;
+}
+.status-dot{position:relative;}
+@keyframes sonarPing{
+  0%  {transform:scale(1);opacity:.8;}
+  100%{transform:scale(3);opacity:0;}
+}
+
+/* ── Chip: magnetic float ── */
+.chip{transition:transform .25s cubic-bezier(.34,1.56,.64,1),box-shadow .22s ease,background .22s,border-color .22s;}
+.chip:hover{transform:translateY(-3px) scale(1.05);}
+
+/* ── Input row: glow pulse when focused ── */
+.input-row:focus-within{
+  animation:inputGlow 2.5s ease-in-out infinite;
+}
+@keyframes inputGlow{
+  0%,100%{box-shadow:0 0 0 3px rgba(34,197,94,.08),var(--sh-md);}
+  50%    {box-shadow:0 0 0 6px rgba(34,197,94,.14),0 0 28px rgba(34,197,94,.12);}
+}
+
+/* ── Toast: morph entrance ── */
+@keyframes toastIn{
+  0%  {opacity:0;transform:translateX(50px) scale(.85) rotate(2deg);}
+  65% {transform:translateX(-4px) scale(1.02) rotate(0);}
+  100%{opacity:1;transform:none;}
+}
+
+/* ── Sidebar item: spring hover ── */
+.sb-item{transition:all .22s cubic-bezier(.34,1.4,.64,1);}
+.sb-item:hover{transform:translateX(6px) scale(1.01);}
+
 </style>
 </head>
 <body>
+
+<div class="orb orb1" aria-hidden="true"></div>
+<div class="orb orb2" aria-hidden="true"></div>
+<div class="orb orb3" aria-hidden="true"></div>
 
 <!-- ══ SIDEBAR BACKDROP ══ -->
 <div id="sb-backdrop" onclick="closeSidebar()"></div>
@@ -889,20 +1048,6 @@ html[data-theme="dark"] .chat-box{
     <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
     New Conversation
   </button>
-
-  <!-- PDF Upload -->
-  <input type="file" id="pdf-file-input" accept=".pdf" multiple style="display:none" onchange="handlePdfUpload(event)">
-  <button class="sb-upload-btn" onclick="document.getElementById('pdf-file-input').click()">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-    Upload PDF Document
-  </button>
-  <div id="upload-status" style="display:none;margin:6px 12px 0;font-size:11px;padding:7px 10px;border-radius:8px;"></div>
-
-  <div class="sb-section" style="display:flex;align-items:center;justify-content:space-between;padding-right:12px;">
-    <span>Knowledge Base</span>
-    <button onclick="loadDocsList()" style="background:none;border:none;color:rgba(245,158,11,.6);cursor:pointer;font-size:10px;font-weight:700;letter-spacing:.3px;">↻</button>
-  </div>
-  <div id="sb-docs-list" style="padding:0 8px 4px;"></div>
 
   <div class="sb-section">Conversations</div>
   <div id="sb-list"><div class="sb-empty">No conversations yet.<br>Start chatting to build history.</div></div>
@@ -1070,6 +1215,17 @@ function deleteChatData(id){
   localStorage.removeItem("pbr_msgs_"+id);
 }
 
+// ──────────────────────────────────────────────
+// Fetch a fresh server-issued session ID.
+// Falls back to crypto.randomUUID() if server unreachable.
+async function acquireServerId(){
+  try{
+    const r = await fetch(API+"/init-session",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const d = await r.json();
+    return d.sessionId || crypto.randomUUID();
+  }catch(_){ return crypto.randomUUID(); }
+}
+
 function createNewConv(){
   const id = crypto.randomUUID();
   const sid = crypto.randomUUID();
@@ -1202,30 +1358,33 @@ function fmtRelTime(ts){
 // ══════════════════════════════════════════════
 //  CONVERSATION MANAGEMENT
 // ══════════════════════════════════════════════
-function startFreshConv(){
+async function startFreshConv(){
   const conv = createNewConv();
   currentChatId = conv.id;
-  sessionId     = conv.sessionId;
   currentMsgs   = [];
   localStorage.setItem("pbr_active", conv.id);
-  // Show welcome, clear messages
   showWelcome();
+  const sid = await acquireServerId();
+  sessionId = sid;
+  conv.sessionId = sid;
+  upsertConvMeta(conv.id, null, sid);
 }
 
-function newChat(){
-  startFreshConv();
+async function newChat(){
+  await startFreshConv();
   renderSidebarList();
   closeSidebar();
 }
 
-function loadConv(id, closeBar=true){
+async function loadConv(id, closeBar=true){
   const list = getChatList();
   const conv = list.find(c=>c.id===id);
   if(!conv) return startFreshConv();
 
   currentChatId = id;
-  sessionId     = conv.sessionId;
   currentMsgs   = getChatMsgs(id);
+  // Always get a fresh server session — never reuse another user's ID
+  sessionId = await acquireServerId();
   localStorage.setItem("pbr_active", id);
 
   clearMessageDOM();
@@ -1690,86 +1849,6 @@ document.getElementById("send-btn").addEventListener("mousedown", function(e){
 });
 
 // ══════════════════════════════════════════════
-//  PDF UPLOAD & DOCS MANAGER
-// ══════════════════════════════════════════════
-async function handlePdfUpload(e){
-  const files = Array.from(e.target.files||[]);
-  if(!files.length) return;
-  const status = document.getElementById("upload-status");
-  status.style.display = "block";
-  status.style.background = "rgba(245,158,11,.1)";
-  status.style.border = "1px solid rgba(245,158,11,.25)";
-  status.style.color = "#fcd34d";
-  status.textContent = `⏳ Uploading ${files.length} file${files.length>1?"s":""}…`;
-  const fd = new FormData();
-  files.forEach(f => fd.append("pdfs", f));
-  try{
-    const res = await fetch(API+"/upload", { method:"POST", body: fd });
-    const data = await res.json();
-    if(data.success){
-      status.style.background = "rgba(22,163,74,.12)";
-      status.style.border = "1px solid rgba(22,163,74,.28)";
-      status.style.color = "#86efac";
-      status.textContent = `✅ ${data.uploaded.length} file${data.uploaded.length>1?"s":""} uploaded. Rebuilding memory…`;
-      toast("PDF uploaded — rebuilding memory in background", "success");
-      setTimeout(() => { status.style.display = "none"; loadDocsList(); }, 4000);
-    } else {
-      throw new Error(data.error||"Upload failed");
-    }
-  } catch(err){
-    status.style.background = "rgba(239,68,68,.1)";
-    status.style.border = "1px solid rgba(239,68,68,.25)";
-    status.style.color = "#fca5a5";
-    status.textContent = "❌ Upload failed: " + err.message;
-    setTimeout(() => { status.style.display = "none"; }, 5000);
-  }
-  e.target.value = ""; // reset input so same file can be re-uploaded
-}
-
-async function loadDocsList(){
-  const el = document.getElementById("sb-docs-list");
-  if(!el) return;
-  try{
-    const res  = await fetch(API+"/docs-list");
-    const data = await res.json();
-    if(!data.success || !data.files.length){
-      el.innerHTML = '<div class="sb-docs-empty">No documents yet.<br>Upload PDFs above to build memory.</div>';
-      return;
-    }
-    el.innerHTML = data.files.map(f => `
-      <div class="sb-doc-item">
-        <span style="font-size:13px;">📄</span>
-        <span class="sb-doc-name" title="${xss(f.name)}">${xss(f.name)}</span>
-        <span class="sb-doc-size">${(f.size/1024).toFixed(0)}KB</span>
-        <button class="sb-doc-del" onclick="deleteDoc('${xss(f.name)}')" title="Remove">
-          <svg viewBox="0 0 24 24"><path d="M18 6L6 18M6 6l12 12"/></svg>
-        </button>
-      </div>`).join("");
-    // Show chunk/vector count
-    el.innerHTML += `<div style="font-size:9.5px;color:rgba(134,239,172,.3);padding:4px 8px 2px;">${data.vectors} vectors · ${data.files.length} doc${data.files.length>1?"s":""}</div>`;
-  } catch(_){
-    el.innerHTML = '<div class="sb-docs-empty">Could not load docs list.</div>';
-  }
-}
-
-async function deleteDoc(name){
-  if(!confirm(`Remove "${name}" from memory?`)) return;
-  try{
-    const res  = await fetch(API+"/docs/"+encodeURIComponent(name), { method:"DELETE" });
-    const data = await res.json();
-    if(data.success){
-      toast("Document removed — rebuilding memory…", "success");
-      loadDocsList();
-    } else {
-      toast("Failed to remove: "+(data.error||"unknown error"), "error");
-    }
-  } catch(_){ toast("Network error", "error"); }
-}
-
-// Load docs list on start
-loadDocsList();
-
-// ══════════════════════════════════════════════
 //  FLOATING PARTICLE SYSTEM
 // ══════════════════════════════════════════════
 (function initParticles(){
@@ -1811,6 +1890,72 @@ loadDocsList();
   }
   draw();
 })();
+
+// ══════════════════════════════════════════════
+//  3-D TILT ON CHAT WRAPPER
+// ══════════════════════════════════════════════
+(function initTilt(){
+  const wrap = document.querySelector('.chat-wrapper');
+  if(!wrap) return;
+  document.addEventListener('mousemove', e => {
+    const rect = wrap.getBoundingClientRect();
+    const cx   = rect.left + rect.width  / 2;
+    const cy   = rect.top  + rect.height / 2;
+    const dx   = (e.clientX - cx) / rect.width;
+    const dy   = (e.clientY - cy) / rect.height;
+    const maxT = 2.5;
+    wrap.style.transform = `perspective(1200px) rotateY(${dx * maxT}deg) rotateX(${-dy * maxT}deg)`;
+  });
+  document.addEventListener('mouseleave', () => { wrap.style.transform = ''; });
+})();
+
+// ══════════════════════════════════════════════
+//  WAVE BURST ON SEND
+// ══════════════════════════════════════════════
+document.getElementById('send-btn').addEventListener('click', function(){
+  const wave = document.createElement('div');
+  wave.className = 'send-wave';
+  this.appendChild(wave);
+  setTimeout(() => wave.remove(), 600);
+});
+
+// ══════════════════════════════════════════════
+//  MAGNETIC WELCOME LOGO
+// ══════════════════════════════════════════════
+(function initLogoMagnet(){
+  const wrap = document.querySelector('.welcome-logo-wrap');
+  if(!wrap) return;
+  wrap.addEventListener('mousemove', e => {
+    const r  = wrap.getBoundingClientRect();
+    const dx = (e.clientX - r.left - r.width/2)  / r.width  * 14;
+    const dy = (e.clientY - r.top  - r.height/2) / r.height * 14;
+    wrap.style.transform = `translate(${dx}px, ${dy}px)`;
+  });
+  wrap.addEventListener('mouseleave', () => { wrap.style.transform = ''; });
+})();
+
+// ══════════════════════════════════════════════
+//  STAGGER MESSAGE ENTRANCES
+// ══════════════════════════════════════════════
+(function initStaggerObserver(){
+  const io = new IntersectionObserver((entries) => {
+    entries.forEach((entry, i) => {
+      if(entry.isIntersecting){
+        entry.target.style.animationDelay = (i * 40) + 'ms';
+        io.unobserve(entry.target);
+      }
+    });
+  }, { threshold: 0.1 });
+  // Observe existing messages
+  document.querySelectorAll('.message-row').forEach(el => io.observe(el));
+  // Observe future messages via MutationObserver
+  new MutationObserver(muts => {
+    muts.forEach(m => m.addedNodes.forEach(n => {
+      if(n.classList && n.classList.contains('message-row')) io.observe(n);
+    }));
+  }).observe(document.getElementById('chat-box'), { childList: true });
+})();
+
 </script>
 </body>
 </html>

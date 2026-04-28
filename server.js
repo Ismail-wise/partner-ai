@@ -7,62 +7,70 @@ dotenv.config();
 import express from "express";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
-import multer from "multer";
 import * as pdfjsLib from "pdfjs-dist/legacy/build/pdf.mjs";
 
 const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname  = path.dirname(__filename);
 
 const standardFontDataUrl =
   pathToFileURL(path.join(__dirname, "node_modules", "pdfjs-dist", "standard_fonts")).href + "/";
 
 const app = express();
 
-app.use((req, res, next) => {
-  req.setTimeout(180000);
-  res.setTimeout(180000);
-  next();
-});
-
+app.use((req, res, next) => { req.setTimeout(180000); res.setTimeout(180000); next(); });
 app.use(rateLimit({ windowMs: 60 * 1000, max: 80 }));
 app.use(cors());
 app.use(express.json({ limit: "10mb" }));
 
-// ── MULTER (PDF uploads) ─────────────────────────────────────────
+// ── DOCS DIR ────────────────────────────────────────────────────
 const docsDir = path.join(__dirname, "docs");
 if (!fs.existsSync(docsDir)) fs.mkdirSync(docsDir, { recursive: true });
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, docsDir),
-  destination: (_req, _file, cb) => cb(null, docsDir),
-  filename: (_req, file, cb) => {
-    // Sanitise filename and avoid collisions
-    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_() ]/g, "_");
-    const dest = path.join(docsDir, safe);
-    // If file already exists, overwrite silently
-    cb(null, safe);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 50 * 1024 * 1024 }, // 50 MB per file
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype === "application/pdf" || file.originalname.toLowerCase().endsWith(".pdf")) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only PDF files are accepted."));
-    }
-  }
-});
+// ── ADMIN SECRET (set ADMIN_SECRET=... in .env) ─────────────────
+const ADMIN_SECRET = process.env.ADMIN_SECRET || null;
+
+function isAdmin(req) {
+  if (!ADMIN_SECRET) return false; // no secret set → admin routes disabled
+  const h = req.headers["x-admin-secret"] || req.body?.adminSecret || req.query?.secret;
+  return h === ADMIN_SECRET;
+}
 
 // ── GEMINI ──────────────────────────────────────────────────────
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-// ── MEMORY ──────────────────────────────────────────────────────
-let chunks = [];
-let vectorDB = [];
-const sessionHistories = {};
-const MAX_HISTORY = 20;
+// ── SESSION STORE ────────────────────────────────────────────────
+// Each session: { history: [{role,content}], lastActive: timestamp }
+// Sessions expire after 24h of inactivity and are cleaned every hour.
+const SESSION_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+const MAX_HISTORY    = 20;
+const sessions       = {}; // sessionId → { history, lastActive }
+
+function touchSession(id) {
+  if (!sessions[id]) sessions[id] = { history: [], lastActive: Date.now() };
+  else sessions[id].lastActive = Date.now();
+  return sessions[id];
+}
+
+// Hourly cleanup of expired sessions
+setInterval(() => {
+  const now    = Date.now();
+  let cleaned  = 0;
+  for (const id of Object.keys(sessions)) {
+    if (now - sessions[id].lastActive > SESSION_TTL_MS) {
+      delete sessions[id];
+      cleaned++;
+    }
+  }
+  if (cleaned) console.log(`🧹 Cleaned ${cleaned} expired session(s). Active: ${Object.keys(sessions).length}`);
+}, 60 * 60 * 1000);
+
+// Hard cap — evict oldest if too many sessions accumulate
+function evictIfNeeded() {
+  const ids = Object.keys(sessions);
+  if (ids.length <= 500) return;
+  const sorted = ids.sort((a, b) => sessions[a].lastActive - sessions[b].lastActive);
+  sorted.slice(0, ids.length - 400).forEach(id => delete sessions[id]);
+}
 
 // ── EMBEDDING ───────────────────────────────────────────────────
 async function getEmbedding(text) {
@@ -81,9 +89,9 @@ async function getEmbedding(text) {
 
 // ── TEXT SPLITTER ────────────────────────────────────────────────
 function splitText(text, source, size = 500, overlap = 100) {
-  const words = text.split(/\s+/);
+  const words  = text.split(/\s+/);
   const result = [];
-  const step = size - overlap;
+  const step   = size - overlap;
   for (let i = 0; i < words.length; i += step) {
     const chunk = words.slice(i, i + size).join(" ");
     if (chunk.trim()) result.push({ text: chunk, source });
@@ -92,11 +100,11 @@ function splitText(text, source, size = 500, overlap = 100) {
   return result;
 }
 
-// ── EXTRACT TEXT FROM ONE PDF FILE ──────────────────────────────
+// ── EXTRACT TEXT FROM ONE PDF ────────────────────────────────────
 async function extractPdfText(pdfPath) {
   const data = new Uint8Array(fs.readFileSync(pdfPath));
   const pdf  = await pdfjsLib.getDocument({ data, standardFontDataUrl }).promise;
-  let text = "";
+  let text    = "";
   for (let i = 1; i <= pdf.numPages; i++) {
     const page    = await pdf.getPage(i);
     const content = await page.getTextContent();
@@ -106,6 +114,9 @@ async function extractPdfText(pdfPath) {
 }
 
 // ── LOAD PDFs ────────────────────────────────────────────────────
+let chunks   = [];
+let vectorDB = [];
+
 async function loadPDFs() {
   try {
     console.log("📁 Loading PDFs from:", docsDir);
@@ -215,7 +226,6 @@ async function searchRelevantChunks(query, topK = 16) {
   return diverse.map(({ text, source, score }) => ({ text, source, score }));
 }
 
-// ── LANGUAGE DETECTION ──────────────────────────────────────────
 function smartTruncateForEmbedding(text, maxWords = 500) {
   const words = text.trim().split(/\s+/);
   if (words.length <= maxWords) return text;
@@ -285,81 +295,26 @@ ABSOLUTE RULES — NEVER BREAK THESE:
 // ── ROUTES ────────────────────────────────────────────────────────
 app.get("/", (req, res) => res.sendFile(path.join(__dirname, "index.html")));
 
-// ── LIST DOCS ─────────────────────────────────────────────────────
-app.get("/docs-list", (req, res) => {
-  try {
-    const files = fs.existsSync(docsDir)
-      ? fs.readdirSync(docsDir).filter(f => f.toLowerCase().endsWith(".pdf")).map(f => ({
-          name: f,
-          size: fs.statSync(path.join(docsDir, f)).size
-        }))
-      : [];
-    res.json({ success: true, files, chunks: chunks.length, vectors: vectorDB.length });
-  } catch (e) {
-    res.json({ success: false, error: e.message });
-  }
+// ── INIT SESSION — server issues a session ID ────────────────────
+// Client calls this once on load; the returned ID is stored in sessionStorage
+// (not localStorage) so it dies when the browser tab closes — no cross-user leakage.
+app.post("/init-session", (req, res) => {
+  evictIfNeeded();
+  const id  = crypto.randomUUID();
+  const sess = touchSession(id);
+  console.log(`🆕 Session created: ${id.slice(0,8)}… | Active sessions: ${Object.keys(sessions).length}`);
+  res.json({ sessionId: id });
 });
 
-// ── UPLOAD PDF ────────────────────────────────────────────────────
-app.post("/upload", upload.array("pdfs", 10), async (req, res) => {
-  try {
-    const uploaded = (req.files || []).map(f => f.originalname);
-    if (!uploaded.length) return res.json({ success: false, error: "No PDF files received." });
-    console.log("📤 Uploaded:", uploaded.join(", "));
-
-    // Re-load PDFs and rebuild vector DB in the background
-    // We respond immediately so the client isn't left waiting
-    res.json({ success: true, uploaded, message: "Files received. Rebuilding memory — this takes a moment." });
-
-    // Background rebuild
-    setImmediate(async () => {
-      try {
-        await loadPDFs();
-        // Invalidate cache so it rebuilds
-        if (fs.existsSync(VECTOR_CACHE_PATH)) fs.unlinkSync(VECTOR_CACHE_PATH);
-        await buildVectorDB();
-        console.log("✅ Memory rebuilt after upload.");
-      } catch (e) {
-        console.error("❌ Background rebuild error:", e.message);
-      }
-    });
-
-  } catch (e) {
-    console.error("❌ Upload error:", e.message);
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── DELETE DOC ────────────────────────────────────────────────────
-app.delete("/docs/:filename", async (req, res) => {
-  try {
-    const filename = path.basename(req.params.filename); // security: strip any path traversal
-    const filePath = path.join(docsDir, filename);
-    if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, error: "File not found." });
-    fs.unlinkSync(filePath);
-    console.log("🗑️  Deleted:", filename);
-    res.json({ success: true, deleted: filename });
-
-    // Background rebuild
-    setImmediate(async () => {
-      try {
-        await loadPDFs();
-        if (fs.existsSync(VECTOR_CACHE_PATH)) fs.unlinkSync(VECTOR_CACHE_PATH);
-        await buildVectorDB();
-        console.log("✅ Memory rebuilt after delete.");
-      } catch (e) {
-        console.error("❌ Background rebuild error:", e.message);
-      }
-    });
-  } catch (e) {
-    res.status(500).json({ success: false, error: e.message });
-  }
-});
-
-// ── RELOAD DOCS (manual trigger) ─────────────────────────────────
+// ── ADMIN: RELOAD DOCS ────────────────────────────────────────────
+// Protected by ADMIN_SECRET header: x-admin-secret: <your_secret>
+// Add ADMIN_SECRET=your_password to .env to enable.
 app.post("/reload-docs", async (req, res) => {
+  if (!isAdmin(req)) {
+    return res.status(403).json({ success: false, error: "Forbidden. Valid admin secret required." });
+  }
   try {
-    console.log("🔄 Manual reload triggered.");
+    console.log("🔄 Admin: reload-docs triggered.");
     await loadPDFs();
     if (fs.existsSync(VECTOR_CACHE_PATH)) fs.unlinkSync(VECTOR_CACHE_PATH);
     await buildVectorDB();
@@ -373,7 +328,7 @@ app.post("/reload-docs", async (req, res) => {
 app.post("/chat", async (req, res) => {
   try {
     const userMessage = req.body.message?.trim();
-    const sessionId   = req.body.sessionId || "default";
+    const sessionId   = req.body.sessionId;
 
     if (!userMessage) {
       res.setHeader("Content-Type", "text/event-stream");
@@ -382,14 +337,19 @@ app.post("/chat", async (req, res) => {
       return res.end();
     }
 
-    if (!sessionHistories[sessionId]) sessionHistories[sessionId] = [];
+    // Validate session — must be a server-issued ID
+    if (!sessionId || !sessions[sessionId]) {
+      res.setHeader("Content-Type", "text/event-stream");
+      res.write(`data: ${JSON.stringify({ text: "Session expired or invalid. Please refresh the page. | Session သက်တမ်းကုန်သွားပါပြီ။ Page ကို refresh လုပ်ပါ။" })}\n\n`);
+      res.write(`data: [DONE]\n\n`);
+      return res.end();
+    }
+
+    const sess = touchSession(sessionId);
 
     const truncated      = smartTruncateForEmbedding(userMessage);
     const relevantChunks = await searchRelevantChunks(truncated, 16);
 
-    // ── DOC THRESHOLD ──────────────────────────────────────────
-    // 0.45 = sensitive enough to catch document-related questions without false positives.
-    // Anything below this → pure general knowledge + Google Search mode.
     const DOC_THRESHOLD = 0.45;
     const topScore = (
       relevantChunks.length > 0 &&
@@ -398,16 +358,11 @@ app.post("/chat", async (req, res) => {
     ) ? relevantChunks[0].score : 0;
 
     const useDocContext = topScore >= DOC_THRESHOLD;
-
     let fullSystemInstruction;
 
     if (useDocContext) {
-      console.log(`📚 Doc match (${(topScore * 100).toFixed(0)}%) — injecting context`);
-      const pdfContext = relevantChunks
-        .filter(c => c.text)
-        .map(c => c.text)
-        .join("\n\n---\n\n");
-
+      console.log(`📚 Doc match (${(topScore * 100).toFixed(0)}%) [${sessionId.slice(0,8)}]`);
+      const pdfContext = relevantChunks.filter(c => c.text).map(c => c.text).join("\n\n---\n\n");
       fullSystemInstruction = `${systemPrompt}
 
 [BACKGROUND — treat this as knowledge you already have. NEVER mention it, quote it, or refer to it.]
@@ -416,7 +371,7 @@ ${pdfContext}
 Answer naturally from the above background knowledge. Never tell the user you have files, documents, or any reference material. Just answer like you know it. Be thorough — cover every relevant angle from the background. Complete your answer fully, then end with one useful follow-up question.`;
 
     } else {
-      console.log(`🌐 General mode (${(topScore * 100).toFixed(0)}%) — research + expertise`);
+      console.log(`🌐 General mode (${(topScore * 100).toFixed(0)}%) [${sessionId.slice(0,8)}]`);
       fullSystemInstruction = `${systemPrompt}
 
 This question goes beyond the specific documents in your knowledge base. Answer it using your deep general expertise. Go broad and thorough:
@@ -428,7 +383,8 @@ This question goes beyond the specific documents in your knowledge base. Answer 
 Complete your answer fully, then end with one genuinely useful follow-up question.`;
     }
 
-    const geminiHistory = sessionHistories[sessionId].map(msg => ({
+    // Convert history (stored as {role, content}) → Gemini format
+    const geminiHistory = sess.history.map(msg => ({
       role:  msg.role === "assistant" ? "model" : "user",
       parts: [{ text: msg.content }]
     }));
@@ -446,10 +402,7 @@ Complete your answer fully, then end with one genuinely useful follow-up questio
         model: "gemini-2.5-flash",
         systemInstruction: fullSystemInstruction,
         tools: [{ googleSearch: {} }],
-        generationConfig: {
-          temperature: 0.6,
-          maxOutputTokens: 8000
-        }
+        generationConfig: { temperature: 0.6, maxOutputTokens: 8000 }
       });
 
       const chat   = model.startChat({ history: geminiHistory });
@@ -462,19 +415,15 @@ Complete your answer fully, then end with one genuinely useful follow-up questio
         if (next.done) break;
         try {
           const text = next.value.text();
-          if (text) {
-            fullReply += text;
-            res.write(`data: ${JSON.stringify({ text })}\n\n`);
-          }
+          if (text) { fullReply += text; res.write(`data: ${JSON.stringify({ text })}\n\n`); }
         } catch (_) { /* thinking-only chunk */ }
       }
 
-      sessionHistories[sessionId].push({ role: "user",      content: userMessage });
-      sessionHistories[sessionId].push({ role: "assistant", content: fullReply   });
-      sessionHistories[sessionId] = sessionHistories[sessionId].slice(-MAX_HISTORY);
+      sess.history.push({ role: "user",      content: userMessage });
+      sess.history.push({ role: "assistant", content: fullReply   });
+      sess.history = sess.history.slice(-MAX_HISTORY);
+      sess.lastActive = Date.now();
 
-      const keys = Object.keys(sessionHistories);
-      if (keys.length > 100) delete sessionHistories[keys[0]];
       res.write(`data: [DONE]\n\n`);
 
     } catch (streamErr) {
@@ -508,11 +457,17 @@ Complete your answer fully, then end with one genuinely useful follow-up questio
 
 // ── CLEAR SESSION ────────────────────────────────────────────────
 app.post("/clear-session", (req, res) => {
-  const sessionId = req.body.sessionId || "default";
-  delete sessionHistories[sessionId];
-  res.json({ success: true, message: "Session cleared. | Session ရှင်းလင်းပြီးပါပြီ။" });
+  const { sessionId } = req.body;
+  if (sessionId && sessions[sessionId]) {
+    sessions[sessionId].history = [];
+    sessions[sessionId].lastActive = Date.now();
+  }
+  res.json({ success: true });
 });
 
 // ── START ─────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`🚀 Server on port ${PORT}`));
+app.listen(PORT, () => {
+  console.log(`🚀 Server on port ${PORT}`);
+  console.log(`🔐 Admin routes: ${ADMIN_SECRET ? "ENABLED" : "DISABLED (set ADMIN_SECRET in .env)"}`);
+});
