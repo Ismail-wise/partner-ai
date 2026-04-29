@@ -624,11 +624,67 @@ html[data-theme="dark"] .ai-content pre{background:rgba(0,0,0,.5);}
 ══════════════════════════════════════════ */
 @media(max-width:640px){
   body{align-items:flex-start;}
-  .chat-wrapper{max-width:100%;height:100vh;height:100dvh;border-radius:0;border:none;box-shadow:none;}
-  .chat-box{padding:16px 14px;}
-  .message-bubble{max-width:88%;}
-  .input-area{padding:10px 14px 16px;}
+  .chat-wrapper{
+    max-width:100%;height:100vh;height:100dvh;
+    border-radius:0;border:none;box-shadow:none;
+  }
+  .chat-box{padding:14px 12px;gap:12px;}
+  .message-bubble{max-width:87%;}
+  .message-text{padding:10px 14px;font-size:13px;line-height:1.68;}
+  .msg-avatar{width:28px;height:28px;font-size:13px;border-radius:8px;}
+  .input-area{padding:8px 12px calc(10px + env(safe-area-inset-bottom));}
+  .input-row{padding:8px 10px 8px 14px;border-radius:22px;}
+  #msg-input{font-size:16px;} /* prevent iOS auto-zoom */
+  .send-btn{width:44px;height:44px;min-width:44px;border-radius:14px;}
+  .icon-btn{width:38px;height:38px;}
   .hdr-badge{display:none;}
+  .hdr-sub{font-size:9px;}
+  .hdr-name{font-size:13px;}
+  .hdr-avatar{width:36px;height:36px;font-size:17px;border-radius:10px;}
+  .chat-header{padding:10px 14px;gap:10px;}
+  .welcome-screen{padding:18px 14px;gap:11px;}
+  .welcome-screen h2{font-size:clamp(17px,4.5vw,22px);}
+  .welcome-desc{font-size:12.5px;}
+  .welcome-motto{font-size:11.5px;padding:8px 14px;}
+  .welcome-chips{gap:7px;}
+  .chip{padding:8px 13px;font-size:11.5px;min-height:38px;border-radius:20px;}
+  .welcome-langs{padding:7px 16px;font-size:10.5px;}
+  .scroll-btn{right:14px;bottom:84px;}
+  .input-footer{display:none;}
+  .user-email-short{max-width:72px;}
+  .msg-counter{font-size:10.5px;}
+  .action-btn{opacity:1 !important;width:28px;height:28px;} /* always visible on mobile */
+  .sb-item:hover{transform:none;}
+  .message-row.user:hover .message-text,
+  .message-row.ai:hover  .message-text{transform:none;}
+  .hdr-status{font-size:9px;}
+  .status-dot{width:5px;height:5px;}
+}
+
+@media(max-width:400px){
+  .hdr-status{display:none;}
+  .hdr-sub{display:none;}
+  .welcome-screen h2{font-size:16px;}
+  .chip{font-size:11px;padding:7px 10px;}
+  .message-bubble{max-width:91%;}
+  .hdr-actions{gap:3px;}
+  .icon-btn{width:34px;height:34px;}
+  .send-btn{width:42px;height:42px;}
+}
+
+/* Touch-device: remove hover animations that feel wrong on tap */
+@media(hover:none){
+  .send-btn:hover{transform:none;box-shadow:0 4px 16px rgba(22,163,74,.4),0 1px 0 rgba(255,255,255,.2) inset;}
+  .chip:hover{transform:none;box-shadow:var(--sh-sm);}
+  .icon-btn:hover{transform:none;background:rgba(134,239,172,.07);}
+  .sb-new-btn:hover{transform:none;}
+  .landing-card:hover{transform:none;}
+  /* Active states for tap feedback */
+  .send-btn:active{transform:scale(.9);}
+  .chip:active{transform:scale(.95);}
+  .icon-btn:active{transform:scale(.91);}
+  .landing-card:active{transform:scale(.98);}
+  .auth-submit:active{transform:scale(.98);}
 }
 
 /* ══════════════════════════════════════════
@@ -1275,6 +1331,158 @@ html[data-theme="dark"] .orb{opacity:.18;}
 .admin-key-btn.confirm{background:linear-gradient(135deg,#92400e,#f59e0b,#fbbf24);color:#1a0a00;}
 .admin-key-btn.confirm:hover{opacity:.9;transform:translateY(-1px);}
 .admin-key-btn.confirm:disabled{opacity:.45;cursor:not-allowed;transform:none;}
+
+/* ══════════════════════════════════════════
+   PREMIUM V5 — ENHANCED ANIMATIONS & POLISH
+══════════════════════════════════════════ */
+
+/* ── Animated gradient border on chat wrapper ── */
+.chat-wrapper{position:relative;}
+.chat-wrapper::after{
+  content:"";position:absolute;inset:-1.5px;border-radius:calc(var(--r-xl) + 1.5px);
+  background:conic-gradient(from 0deg,#22c55e,#f59e0b,#4ade80,#fbbf24,#16a34a,#f59e0b,#22c55e);
+  z-index:-1;pointer-events:none;
+  animation:borderSpin 8s linear infinite;opacity:.35;
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite:xor;
+  mask-composite:exclude;
+  padding:1.5px;
+}
+html[data-theme="dark"] .chat-wrapper::after{opacity:.22;}
+@keyframes borderSpin{to{transform:rotate(360deg)}}
+
+/* ── Staggered chip entrance on welcome ── */
+.welcome-chips .chip{animation:chipEntrance .45s cubic-bezier(.34,1.56,.64,1) both;}
+.welcome-chips .chip:nth-child(1){animation-delay:.08s}
+.welcome-chips .chip:nth-child(2){animation-delay:.13s}
+.welcome-chips .chip:nth-child(3){animation-delay:.18s}
+.welcome-chips .chip:nth-child(4){animation-delay:.23s}
+.welcome-chips .chip:nth-child(5){animation-delay:.28s}
+.welcome-chips .chip:nth-child(6){animation-delay:.33s}
+.welcome-chips .chip:nth-child(7){animation-delay:.38s}
+.welcome-chips .chip:nth-child(8){animation-delay:.43s}
+@keyframes chipEntrance{
+  from{opacity:0;transform:translateY(16px) scale(.88)}
+  to  {opacity:1;transform:none}
+}
+
+/* ── Welcome screen elements stagger ── */
+.welcome-screen>*{animation:wsFadeUp .5s var(--ease) both;}
+.welcome-screen>*:nth-child(1){animation-delay:.04s}
+.welcome-screen>*:nth-child(2){animation-delay:.10s}
+.welcome-screen>*:nth-child(3){animation-delay:.16s}
+.welcome-screen>*:nth-child(4){animation-delay:.22s}
+.welcome-screen>*:nth-child(5){animation-delay:.28s}
+.welcome-screen>*:nth-child(6){animation-delay:.34s}
+@keyframes wsFadeUp{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+
+/* ── Better typing indicator ── */
+.typing-bubble{min-height:44px;}
+.typing-dot{
+  background:var(--g5);
+  box-shadow:0 0 8px rgba(34,197,94,.5);
+}
+
+/* ── Message particle burst ── */
+.msg-particle{
+  position:fixed;border-radius:50%;pointer-events:none;z-index:9999;
+  width:6px;height:6px;
+  animation:particleFly .72s cubic-bezier(.22,1,.36,1) forwards;
+}
+@keyframes particleFly{
+  0%  {opacity:.95;transform:scale(1) translate(0,0)}
+  100%{opacity:0;  transform:scale(.2) translate(var(--tx),var(--ty))}
+}
+
+/* ── Swipe hint strip (mobile) ── */
+.swipe-hint{
+  position:fixed;left:0;top:50%;z-index:30;pointer-events:none;
+  width:4px;height:56px;border-radius:0 4px 4px 0;
+  background:linear-gradient(180deg,transparent,rgba(34,197,94,.55),transparent);
+  transform:translateY(-50%);
+  opacity:0;transition:opacity .35s;
+}
+.swipe-hint.visible{opacity:1;animation:swipeHintPulse 2s ease-in-out infinite;}
+@keyframes swipeHintPulse{
+  0%,100%{width:3px;opacity:.35}
+  50%    {width:6px;opacity:.9}
+}
+
+/* ── Safe area bottom for input ── */
+@supports(padding:env(safe-area-inset-bottom)){
+  .input-area{padding-bottom:max(18px,calc(14px + env(safe-area-inset-bottom)));}
+  @media(max-width:640px){
+    .input-area{padding-bottom:max(12px,calc(8px + env(safe-area-inset-bottom)));}
+  }
+}
+
+/* ── Glow pulse on focused input row ── */
+.input-row:focus-within{
+  border-color:var(--g6);
+  box-shadow:0 0 0 3px rgba(34,197,94,.10),0 0 28px rgba(34,197,94,.08),var(--sh-md);
+}
+
+/* ── Auth box ambient sweep ── */
+.auth-box::after{
+  content:"";position:absolute;top:0;left:-60%;
+  width:40%;height:100%;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(34,197,94,.04),transparent);
+  animation:authSweep 7s ease-in-out infinite;
+}
+@keyframes authSweep{0%,30%{left:-60%}60%,100%{left:120%}}
+
+/* ── Landing card shimmer ── */
+.landing-card::before{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(125deg,transparent 40%,rgba(255,255,255,.06) 50%,transparent 60%);
+  background-size:200% 200%;opacity:0;transition:opacity .3s;
+}
+.landing-card:hover::before{opacity:1;animation:cardShimmer .7s ease forwards;}
+@keyframes cardShimmer{0%{background-position:200% 200%}100%{background-position:-20% -20%}}
+
+/* ── Better welcome logo ring colors ── */
+.welcome-logo-wrap::before{
+  background:conic-gradient(from 0deg,rgba(34,197,94,.22),rgba(245,158,11,.18),rgba(74,222,128,.18),rgba(251,191,36,.14),rgba(34,197,94,.22));
+}
+
+/* ── Sidebar item: highlight on active ── */
+.sb-item.active{
+  box-shadow:inset 0 0 0 1px rgba(245,158,11,.22),0 4px 14px rgba(245,158,11,.08);
+}
+
+/* ── Input char count color warning ── */
+.char-count.near{color:var(--au5);}
+.char-count.over{color:var(--re4);}
+
+/* ── Better scroll-to-bottom button ── */
+.scroll-btn{backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}
+
+/* ── Message row: subtle depth on consecutive messages ── */
+.message-row+.message-row.ai{margin-top:-4px;}
+.message-row+.message-row.user{margin-top:-4px;}
+
+/* ── Pulse glow for the status dot (stronger) ── */
+@keyframes sonarPing{
+  0%  {transform:scale(1);opacity:.9;}
+  100%{transform:scale(4);opacity:0;}
+}
+
+/* ── Keyboard shortcut indicator (non-touch only) ── */
+@media(hover:hover) and (pointer:fine){
+  .send-btn[title]::before{
+    content:attr(title);
+    position:absolute;bottom:calc(100% + 8px);right:0;
+    background:rgba(5,46,22,.92);color:#86efac;
+    font-size:9.5px;font-weight:600;letter-spacing:.3px;
+    padding:4px 9px;border-radius:8px;white-space:nowrap;
+    pointer-events:none;opacity:0;transform:translateY(4px);
+    transition:opacity .18s,transform .18s;
+    box-shadow:0 4px 12px rgba(0,0,0,.25);
+  }
+  .send-btn:hover::before{opacity:1;transform:none;}
+}
 
 </style>
 </head>
@@ -2610,14 +2818,100 @@ document.getElementById('send-btn').addEventListener('click', function(){
       }
     });
   }, { threshold: 0.1 });
-  // Observe existing messages
   document.querySelectorAll('.message-row').forEach(el => io.observe(el));
-  // Observe future messages via MutationObserver
   new MutationObserver(muts => {
     muts.forEach(m => m.addedNodes.forEach(n => {
       if(n.classList && n.classList.contains('message-row')) io.observe(n);
     }));
   }).observe(document.getElementById('chat-box'), { childList: true });
+})();
+
+// ══════════════════════════════════════════════
+//  SWIPE SIDEBAR OPEN/CLOSE (mobile)
+// ══════════════════════════════════════════════
+(function initSwipe(){
+  let tx = 0, ty = 0;
+  const THRESHOLD = 46, EDGE = 34;
+  document.addEventListener('touchstart', e => {
+    tx = e.touches[0].clientX;
+    ty = e.touches[0].clientY;
+  }, { passive: true });
+  document.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - tx;
+    const dy = e.changedTouches[0].clientY - ty;
+    if(Math.abs(dx) < THRESHOLD || Math.abs(dy) > Math.abs(dx) * 1.3) return;
+    const sidebar = document.getElementById('sidebar');
+    const isOpen  = sidebar.classList.contains('open');
+    if(dx > 0 && tx < EDGE && !isOpen){
+      toggleSidebar();
+      if(navigator.vibrate) navigator.vibrate(9);
+    } else if(dx < 0 && isOpen){
+      closeSidebar();
+      if(navigator.vibrate) navigator.vibrate(9);
+    }
+  }, { passive: true });
+})();
+
+// ══════════════════════════════════════════════
+//  PARTICLE BURST ON SEND
+// ══════════════════════════════════════════════
+(function initSendParticles(){
+  const btn = document.getElementById('send-btn');
+  if(!btn) return;
+  btn.addEventListener('click', () => {
+    const rect   = btn.getBoundingClientRect();
+    const cx     = rect.left + rect.width  / 2;
+    const cy     = rect.top  + rect.height / 2;
+    const colors = ['#22c55e','#4ade80','#f59e0b','#fbbf24','#86efac','#16a34a'];
+    const count  = window.innerWidth < 640 ? 6 : 9;
+    for(let i = 0; i < count; i++){
+      const p     = document.createElement('div');
+      p.className = 'msg-particle';
+      const angle = (i / count) * Math.PI * 2 + Math.random() * .6;
+      const dist  = 32 + Math.random() * 44;
+      p.style.cssText = [
+        `left:${cx - 3}px`,`top:${cy - 3}px`,
+        `background:${colors[i % colors.length]}`,
+        `width:${4 + Math.random() * 4}px`,
+        `height:${4 + Math.random() * 4}px`,
+        `--tx:${(Math.cos(angle) * dist).toFixed(1)}px`,
+        `--ty:${(Math.sin(angle) * dist).toFixed(1)}px`,
+        `animation-duration:${0.55 + Math.random() * 0.3}s`
+      ].join(';');
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 900);
+    }
+  });
+})();
+
+// ══════════════════════════════════════════════
+//  CHAR COUNT COLOR WARNING
+// ══════════════════════════════════════════════
+(function initCharCountColors(){
+  const input = document.getElementById('msg-input');
+  const cc    = document.getElementById('char-count');
+  if(!input || !cc) return;
+  input.addEventListener('input', () => {
+    const n = input.value.length;
+    cc.className = n > 900 ? 'char-count over' : n > 700 ? 'char-count near' : 'char-count';
+  });
+})();
+
+// ══════════════════════════════════════════════
+//  SWIPE HINT (first visit on mobile only)
+// ══════════════════════════════════════════════
+(function showSwipeHint(){
+  if(window.innerWidth > 640) return;
+  if(localStorage.getItem('pbr_swipehint_v2')) return;
+  const hint = document.createElement('div');
+  hint.className = 'swipe-hint';
+  document.body.appendChild(hint);
+  setTimeout(() => hint.classList.add('visible'), 2200);
+  setTimeout(() => {
+    hint.classList.remove('visible');
+    setTimeout(() => hint.remove(), 400);
+    localStorage.setItem('pbr_swipehint_v2', '1');
+  }, 5400);
 })();
 
 </script>
