@@ -1,14 +1,14 @@
 {
   "users": [
     {
-      "id": "e506e298-745b-425b-865f-0a099ba99134",
-      "email": "sithuaung22.pyay@gmail.com",
-      "passwordHash": "$2b$12$fqr.w0PCzYZzEZZSrGrTduIpowHW/Dg9q7BfkBO7nWszJ2Hv5PVHS",
-      "role": "premium",
-      "createdAt": "2026-04-28T08:46:31.490Z",
+      "id": "93f59ffc-08d7-4dc2-97ec-ab88a6186779",
+      "email": "aiautono247@gmail.com",
+      "passwordHash": "$2b$12$ZbQTTPUtNt.PZjw5JA05bOScI8g9vH65ppgJicnQCMgt9L1jbQoeO",
+      "role": "free",
+      "createdAt": "2026-07-25T06:34:02.972Z",
       "daily": {
-        "date": "2026-04-28",
-        "count": 0
+        "date": "2026-07-25",
+        "count": 10
       }
     }
   ]
