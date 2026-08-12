@@ -40,7 +40,9 @@ if (!INTERNAL_SECRET || INTERNAL_SECRET.length < 32) {
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 const docsDir = path.join(__dirname, "docs");
 const legacyVectorCachePath = path.join(__dirname, "vectordb_cache.json");
-const pbrVectorCachePath = path.join(__dirname, "pbr_vectordb_cache.json");
+const pbrVectorCachePath = process.env.PBR_VECTOR_CACHE_PATH
+  ? path.resolve(process.env.PBR_VECTOR_CACHE_PATH)
+  : path.join(__dirname, "pbr_vectordb_cache.json");
 const standardFontDataUrl = pathToFileURL(
   path.join(__dirname, "node_modules", "pdfjs-dist", "standard_fonts")
 ).href + "/";
@@ -51,11 +53,37 @@ let knowledgeReady = false;
 let knowledgeSource = "none";
 let sourceChunkMode = "none";
 
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
+
 function secureEquals(provided, expected) {
   const a = Buffer.from(String(provided || ""), "utf8");
   const b = Buffer.from(String(expected || ""), "utf8");
   if (a.length !== b.length) return false;
   return crypto.timingSafeEqual(a, b);
+}
+
+function shouldRetry(error) {
+  const message = String(error?.message || "");
+  return message.includes("429") || message.includes("503") || message.includes("RESOURCE_EXHAUSTED");
+}
+
+async function withRetry(operation, label, attempts = 5) {
+  let lastError;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await operation();
+    } catch (error) {
+      lastError = error;
+      if (!shouldRetry(error) || attempt === attempts) throw error;
+
+      const delayMs = Math.min(15000, 1200 * (2 ** (attempt - 1)));
+      console.warn(`${label} rate-limited/unavailable; retry ${attempt}/${attempts} in ${delayMs}ms`);
+      await sleep(delayMs);
+    }
+  }
+
+  throw lastError;
 }
 
 function computeDocFingerprint() {
@@ -90,11 +118,14 @@ async function getQueryEmbedding(text) {
     const cleanText = text.replace(/\s+/g, " ").trim().slice(0, 8000);
     if (!cleanText) return null;
 
-    const result = await ai.models.embedContent({
-      model: EMBEDDING_MODEL,
-      contents: prepareQuery(cleanText),
-      config: { outputDimensionality: EMBEDDING_DIMENSIONS },
-    });
+    const result = await withRetry(
+      () => ai.models.embedContent({
+        model: EMBEDDING_MODEL,
+        contents: prepareQuery(cleanText),
+        config: { outputDimensionality: EMBEDDING_DIMENSIONS },
+      }),
+      "Query embedding"
+    );
 
     return result.embeddings?.[0]?.values || null;
   } catch (error) {
@@ -110,11 +141,14 @@ async function getDocumentEmbeddings(batch) {
     parts: [{ text: prepareDocument(chunk.text, chunk.source) }],
   }));
 
-  const result = await ai.models.embedContent({
-    model: EMBEDDING_MODEL,
-    contents,
-    config: { outputDimensionality: EMBEDDING_DIMENSIONS },
-  });
+  const result = await withRetry(
+    () => ai.models.embedContent({
+      model: EMBEDDING_MODEL,
+      contents,
+      config: { outputDimensionality: EMBEDDING_DIMENSIONS },
+    }),
+    `Document embedding batch (${batch.length})`
+  );
 
   return (result.embeddings || []).map(item => item.values || null);
 }
@@ -265,6 +299,7 @@ async function buildPbrVectorCache(cacheKey) {
 
   if (vectorDB.length > 0) {
     try {
+      fs.mkdirSync(path.dirname(pbrVectorCachePath), { recursive: true });
       fs.writeFileSync(
         pbrVectorCachePath,
         JSON.stringify({
