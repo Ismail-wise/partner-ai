@@ -5,7 +5,9 @@
   "type": "module",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "start:pbr": "node pbr-service.js",
+    "check:pbr": "node --check pbr-service.js"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
