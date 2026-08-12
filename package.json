@@ -10,6 +10,7 @@
     "check:pbr": "node --check pbr-service.js"
   },
   "dependencies": {
+    "@google/genai": "^2.14.0",
     "@google/generative-ai": "^0.24.1",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
