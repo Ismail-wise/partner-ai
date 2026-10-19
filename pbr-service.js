@@ -522,7 +522,7 @@ app.post("/internal/pbr/chat", async (req, res) => {
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   const history = compactHistory(req.body?.history);
   const workspaceContext = req.body?.workspaceContext ?? {};
-  const replyLanguage = req.body?.replyLanguage ?? 'auto';
+  const replyLanguage = req.body?.replyLanguage === undefined ? 'auto' : req.body.replyLanguage;
 
   if (!REPLY_LANGUAGES.includes(replyLanguage)) {
     return res.status(422).json({ success: false, error: 'Unsupported reply language' });
