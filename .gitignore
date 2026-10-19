@@ -1,3 +1,4 @@
 node_modules
 .env
 users.json
+pbr_vectordb_cache.json
