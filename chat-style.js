@@ -1,6 +1,18 @@
 export const CHAT_INTERFACE_PROTOCOL = 1;
 export const REPLY_LANGUAGES = Object.freeze(['auto', 'my', 'en']);
 
+// Decide Auto from this message only. Burmese history and retrieved documents
+// must not decide the response language for an English follow-up.
+export function resolveReplyLanguage(language = 'auto', message = '') {
+    if (!REPLY_LANGUAGES.includes(language)) throw new TypeError('Unsupported reply language');
+    if (language !== 'auto') return language;
+    const letters = String(message).match(/\p{Letter}/gu) || [];
+    const myanmar = letters.filter(letter => /\p{Script=Myanmar}/u.test(letter)).length;
+    const latin = letters.filter(letter => /\p{Script=Latin}/u.test(letter)).length;
+    if (!myanmar && !latin) return 'auto';
+    return myanmar > latin ? 'my' : 'en';
+}
+
 export function replyLanguageInstructions(language = 'auto') {
     if (!REPLY_LANGUAGES.includes(language)) throw new TypeError('Unsupported reply language');
     const choice = {
@@ -15,6 +27,7 @@ Use concise, conversational language. Start with the answer. Usually a few short
 
 // Keep the current turn's preference after potentially long, multilingual RAG
 // evidence. Source text and history must not become a reply-language preference.
-export function withReplyLanguageInstructions(contextInstructions, language = 'auto') {
-    return `${contextInstructions}\n\nREPLY LANGUAGE FOR THIS TURN\n${replyLanguageInstructions(language)}\nThe language of evidence is not a request to use that language. Answer the latest question now, using the reply-language rule above.`;
+export function withReplyLanguageInstructions(contextInstructions, language = 'auto', latestMessage = '') {
+    const resolved = resolveReplyLanguage(language, latestMessage);
+    return `${contextInstructions}\n\nREPLY LANGUAGE FOR THIS TURN\n${replyLanguageInstructions(resolved)}\nThe language of evidence is not a request to use that language. Answer the latest question now, using the reply-language rule above.`;
 }

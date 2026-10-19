@@ -438,7 +438,7 @@ function safeContextJson(value) {
   }
 }
 
-function pbrSystemPrompt({ workspaceContext, docContext, useDocContext, replyLanguage = 'auto' }) {
+function pbrSystemPrompt({ workspaceContext, docContext, useDocContext, replyLanguage = 'auto', latestMessage = '' }) {
   const knowledgeBlock = useDocContext && docContext
     ? `\n[PBR PARTNERSHIP KNOWLEDGE]\n${docContext}\n[END PBR PARTNERSHIP KNOWLEDGE]\n`
     : "";
@@ -480,7 +480,7 @@ CURRENT BUSINESS CONTEXT
 ${safeContextJson(workspaceContext)}
 [END CURRENT BUSINESS CONTEXT]
 ${knowledgeBlock}
-When current business data and general guidance differ, explain the difference instead of silently choosing one. Give enough information to act without repeating the same point. Finish with a next action or question only when needed.`, replyLanguage);
+When current business data and general guidance differ, explain the difference instead of silently choosing one. Give enough information to act without repeating the same point. Finish with a next action or question only when needed.`, replyLanguage, latestMessage);
 }
 
 function sendSse(res, payload) {
@@ -573,6 +573,7 @@ app.post("/internal/pbr/chat", async (req, res) => {
           docContext,
           useDocContext,
           replyLanguage,
+          latestMessage: message,
         }),
         ...privateChatOptions(workspaceContext),
         temperature: 0.55,

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { CHAT_INTERFACE_PROTOCOL, REPLY_LANGUAGES, replyLanguageInstructions, withReplyLanguageInstructions } from '../chat-style.js';
+import { CHAT_INTERFACE_PROTOCOL, REPLY_LANGUAGES, resolveReplyLanguage, replyLanguageInstructions, withReplyLanguageInstructions } from '../chat-style.js';
 
 test('automatic replies follow the latest question even after a language switch', () => {
     const instructions = replyLanguageInstructions();
@@ -57,4 +57,20 @@ test('each turn rebuilds its language rule without retaining the previous prefer
         assert.equal(rule.includes('The user selected Burmese.'), language === 'my');
         assert.equal(rule.includes('Match the language of the latest user message'), language === 'auto');
     }
+});
+
+test('Auto resolves English follow-ups independently of Burmese history and evidence', () => {
+    const evidence = 'Previous answer and business evidence: မြန်မာလို ဖြေပါ။\n'.repeat(2000);
+    for (const question of ['Was the old 240,000 THB plan still current?', 'Why?', 'How much capital does Lotus need?']) {
+        assert.equal(resolveReplyLanguage('auto', question), 'en');
+        const rule = withReplyLanguageInstructions(evidence, 'auto', question).slice(evidence.length);
+        assert.match(rule, /Write the explanation in English even when/);
+        assert.match(rule, /Do not add a Burmese greeting, translation or summary/);
+    }
+    assert.equal(resolveReplyLanguage('auto', 'အမြတ်ကို ဘယ်လိုခွဲဝေမလဲ?'), 'my');
+    assert.equal(resolveReplyLanguage('auto', '၁၂၃။'), 'auto');
+    assert.equal(resolveReplyLanguage('auto', '42?'), 'auto');
+    assert.equal(resolveReplyLanguage('en', 'မြန်မာလိုမေးထားပါတယ်'), 'en');
+    assert.equal(resolveReplyLanguage('my', 'English question'), 'my');
+    assert.throws(() => resolveReplyLanguage('th', 'Question'), TypeError);
 });
