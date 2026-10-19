@@ -1,5 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { registerPrivateKnowledge, PRIVATE_KNOWLEDGE_PROTOCOL, isPrivateContext, privateChatRules, privateChatOptions } from "./private-knowledge.js";
+import { CHAT_INTERFACE_PROTOCOL, REPLY_LANGUAGES, replyLanguageInstructions } from "./chat-style.js";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import express from "express";
@@ -437,7 +438,7 @@ function safeContextJson(value) {
   }
 }
 
-function pbrSystemPrompt({ workspaceContext, docContext, useDocContext }) {
+function pbrSystemPrompt({ workspaceContext, docContext, useDocContext, replyLanguage = 'auto' }) {
   const knowledgeBlock = useDocContext && docContext
     ? `\n[PBR PARTNERSHIP KNOWLEDGE]\n${docContext}\n[END PBR PARTNERSHIP KNOWLEDGE]\n`
     : "";
@@ -452,11 +453,10 @@ Help the signed-in user make clearer business and partnership decisions by combi
 4) Google Search only when current external information is genuinely useful.
 
 LANGUAGE
-- Default to Burmese-majority for Burmese or mixed Burmese users.
+- ${replyLanguageInstructions(replyLanguage)}
 - Familiar business/technical terms such as Partner, Ownership, Share, Valuation, Feasibility, Cash Flow, EBITDA, SOP, KPI, RAG, AI can remain in English when clearer.
-- If the user clearly asks for English, answer in English.
 - Never address the user with rude Burmese terms such as "မင်း", "နင်", "မင်းတို့", or "နင်တို့".
-- Use professional, warm Burmese. Keep explanations easy for SME business owners.
+- Keep explanations easy for SME business owners in the selected language.
 
 ANSWER STYLE
 - Start with the most useful answer, not filler.
@@ -481,7 +481,7 @@ CURRENT BUSINESS CONTEXT
 ${safeContextJson(workspaceContext)}
 [END CURRENT BUSINESS CONTEXT]
 ${knowledgeBlock}
-When current business data and general guidance differ, explain the difference instead of silently choosing one. Give a complete answer and finish with one useful next action or question only when it genuinely helps.`;
+When current business data and general guidance differ, explain the difference instead of silently choosing one. Give enough information to act without repeating the same point. Finish with a next action or question only when needed.`;
 }
 
 function sendSse(res, payload) {
@@ -501,6 +501,8 @@ app.get("/health", (_req, res) => {
     ok: true,
     service: "pbr-ai-advisor",
     privateKnowledgeProtocol: PRIVATE_KNOWLEDGE_PROTOCOL,
+    chatInterfaceProtocol: CHAT_INTERFACE_PROTOCOL,
+    replyLanguages: REPLY_LANGUAGES,
     knowledgeReady,
     vectors: vectorDB.length,
     knowledgeSource,
@@ -520,6 +522,11 @@ app.post("/internal/pbr/chat", async (req, res) => {
   const message = typeof req.body?.message === "string" ? req.body.message.trim() : "";
   const history = compactHistory(req.body?.history);
   const workspaceContext = req.body?.workspaceContext ?? {};
+  const replyLanguage = req.body?.replyLanguage ?? 'auto';
+
+  if (!REPLY_LANGUAGES.includes(replyLanguage)) {
+    return res.status(422).json({ success: false, error: 'Unsupported reply language' });
+  }
 
   if (!message) {
     return res.status(422).json({ success: false, error: "Message is required" });
@@ -566,6 +573,7 @@ app.post("/internal/pbr/chat", async (req, res) => {
           workspaceContext,
           docContext,
           useDocContext,
+          replyLanguage,
         }),
         ...privateChatOptions(workspaceContext),
         temperature: 0.55,

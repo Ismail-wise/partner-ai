@@ -10,5 +10,5 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: node --check pbr-service.js && node --check private-knowledge.js
-      - run: node --test tests/private-knowledge.test.js
+      - run: node --check pbr-service.js && node --check private-knowledge.js && node --check chat-style.js
+      - run: node --test tests/*.test.js
