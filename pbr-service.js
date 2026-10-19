@@ -1,6 +1,6 @@
 import { GoogleGenAI } from "@google/genai";
 import { registerPrivateKnowledge, PRIVATE_KNOWLEDGE_PROTOCOL, isPrivateContext, privateChatRules, privateChatOptions } from "./private-knowledge.js";
-import { CHAT_INTERFACE_PROTOCOL, REPLY_LANGUAGES, replyLanguageInstructions } from "./chat-style.js";
+import { CHAT_INTERFACE_PROTOCOL, REPLY_LANGUAGES, withReplyLanguageInstructions } from "./chat-style.js";
 import crypto from "crypto";
 import dotenv from "dotenv";
 import express from "express";
@@ -443,7 +443,7 @@ function pbrSystemPrompt({ workspaceContext, docContext, useDocContext, replyLan
     ? `\n[PBR PARTNERSHIP KNOWLEDGE]\n${docContext}\n[END PBR PARTNERSHIP KNOWLEDGE]\n`
     : "";
 
-  return `You are PBR AI Advisor, a practical partnership-business advisor inside the PBR platform.
+  return withReplyLanguageInstructions(`You are PBR AI Advisor, a practical partnership-business advisor inside the PBR platform.
 
 PRIMARY GOAL
 Help the signed-in user make clearer business and partnership decisions by combining:
@@ -453,7 +453,6 @@ Help the signed-in user make clearer business and partnership decisions by combi
 4) Google Search only when current external information is genuinely useful.
 
 LANGUAGE
-- ${replyLanguageInstructions(replyLanguage)}
 - Familiar business/technical terms such as Partner, Ownership, Share, Valuation, Feasibility, Cash Flow, EBITDA, SOP, KPI, RAG, AI can remain in English when clearer.
 - Never address the user with rude Burmese terms such as "မင်း", "နင်", "မင်းတို့", or "နင်တို့".
 - Keep explanations easy for SME business owners in the selected language.
@@ -481,7 +480,7 @@ CURRENT BUSINESS CONTEXT
 ${safeContextJson(workspaceContext)}
 [END CURRENT BUSINESS CONTEXT]
 ${knowledgeBlock}
-When current business data and general guidance differ, explain the difference instead of silently choosing one. Give enough information to act without repeating the same point. Finish with a next action or question only when needed.`;
+When current business data and general guidance differ, explain the difference instead of silently choosing one. Give enough information to act without repeating the same point. Finish with a next action or question only when needed.`, replyLanguage);
 }
 
 function sendSse(res, payload) {

@@ -38,3 +38,11 @@ default, with fuller detail when asked. Source citations and necessary
 uncertainty remain. No knowledge or access scope changes.
 
 Run `node --test tests/*.test.js` for both private Knowledge and language contracts.
+
+The current turn's reply-language rule is placed after all retrieved Knowledge and
+Workspace evidence. Explicit English/Burmese choices apply even when the question,
+history and sources use the other language; exact citations and business terms are
+preserved. An explicit language request in the latest question still takes
+precedence. This prevents the language of a long evidence block from becoming the
+reply preference. Provider behavior is checked with synthetic English and Burmese
+questions during the paired server release, in addition to the local contract tests.
